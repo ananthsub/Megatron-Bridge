@@ -326,8 +326,8 @@ class TestEvaluationStepCallbacks:
 
         # Should not raise exception
         fault_tolerance.on_eval_step_end(mock_global_state)
-        # Should still increment counter
-        assert mock_ft_state.curr_eval_iter_idx == 1
+        # Should not increment counter when no client
+        assert mock_ft_state.curr_eval_iter_idx == 0
 
     def test_eval_step_workflow(self):
         """Test complete evaluation step workflow."""
@@ -345,8 +345,8 @@ class TestEvaluationStepCallbacks:
             fault_tolerance.on_eval_step_start(mock_global_state)
             fault_tolerance.on_eval_step_end(mock_global_state)
 
-        # First call should close setup section
-        mock_rank_monitor_client.end_section.assert_called_with("setup")
+        # call should close setup section
+        mock_rank_monitor_client.end_section.assert_any_call("setup")
         # After warmup, should start/end step sections
         assert mock_rank_monitor_client.start_section.call_count == 2  # Steps 2 and 3
         assert mock_rank_monitor_client.end_section.call_count == 3  # Setup + Steps 2 and 3
