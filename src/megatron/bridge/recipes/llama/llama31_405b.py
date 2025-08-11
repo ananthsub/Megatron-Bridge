@@ -257,20 +257,14 @@ def finetune_config(
     pretrained_checkpoint: str,
     dir: Optional[str] = None,
     name: str = "default",
-    train_iters: int = 1000,
     packed_sequence: bool = False,
     peft_scheme: Optional[str] = "lora",
-    num_nodes: Optional[int] = None,
-    lr: Optional[float] = None,
-    min_lr: float = 0,
-    lr_warmup_iters: int = 50,
 ) -> ConfigContainer:
     """
     Create a fine-tuning configuration for Llama3.1 405B model.
 
     This function configures the model for fine-tuning using either full fine-tuning
     or parameter-efficient fine-tuning (PEFT) methods like LoRA.
-    The configuration merges NeMo's performance optimizations by default.
 
     Multi-node optimization is applied based on finetuning scheme:
     - SFT: 12 nodes, TP=8, PP=14, SP=True
@@ -281,13 +275,8 @@ def finetune_config(
             (Megatron format). Use AutoBridge.import_ckpt() to convert from HuggingFace.
         dir (Optional[str]): Base directory for saving logs and checkpoints.
         name (str): Name of the fine-tuning run.
-        train_iters (int): Total number of training iterations.
         packed_sequence (bool): Whether to use packed sequence data loading.
         peft_scheme (Optional[str]): PEFT scheme to use ('lora', 'dora', or None for full fine-tuning).
-        num_nodes (Optional[int]): Number of nodes. If None, auto-determined (12 for SFT, 3 for PEFT).
-        lr (Optional[float]): Learning rate. If None, uses scheme-appropriate default.
-        min_lr (float): Minimum learning rate for cosine decay.
-        lr_warmup_iters (int): Number of warmup iterations for learning rate.
 
     Returns:
         ConfigContainer: Configuration for fine-tuning.
@@ -304,7 +293,6 @@ def finetune_config(
             >>> cfg = finetune_config(
             ...     pretrained_checkpoint="/path/to/checkpoint",
             ...     peft_scheme=None,
-            ...     train_iters=2000
             ... )
 
     Note:
@@ -353,10 +341,14 @@ def finetune_config(
 
     model_cfg.seq_length = seq_length
 
-    use_distributed_optimizer = get_distributed_optimizer_setting(peft_scheme)
-    if lr is None:
-        lr = get_default_learning_rate(peft_scheme)
+    # Training hyperparameters
+    train_iters = 1000
+    lr_warmup_iters = 50
+    min_lr = 0.0
 
+    # Optimizer and scheduler configuration
+    use_distributed_optimizer = get_distributed_optimizer_setting(peft_scheme)
+    lr = get_default_learning_rate(peft_scheme)
     opt_config, scheduler = create_optimizer_and_scheduler_config(
         lr=lr,
         train_iters=train_iters,

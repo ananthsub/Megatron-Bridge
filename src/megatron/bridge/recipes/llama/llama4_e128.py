@@ -239,12 +239,8 @@ def finetune_config(
     pretrained_checkpoint: str,
     dir: Optional[str] = None,
     name: str = "default",
-    train_iters: int = 1000,
     packed_sequence: bool = False,
     peft_scheme: Optional[str] = "lora",
-    lr: Optional[float] = None,
-    min_lr: float = 0.0,
-    lr_warmup_iters: int = 50,
 ) -> ConfigContainer:
     """
     Create a fine-tuning configuration for Llama4 128-Experts (Maverick) model.
@@ -261,13 +257,8 @@ def finetune_config(
             (Megatron format). Use AutoBridge.import_ckpt() to convert from HuggingFace.
         dir (Optional[str]): Base directory for saving logs and checkpoints.
         name (str): Name of the fine-tuning run.
-        train_iters (int): Total number of training iterations.
         packed_sequence (bool): Whether to use packed sequence data loading.
         peft_scheme (Optional[str]): PEFT scheme to use ('lora', 'dora', or None for full fine-tuning).
-        lr (Optional[float]): Learning rate. If None, uses scheme-appropriate default.
-        min_lr (float): Minimum learning rate for cosine decay.
-        lr_warmup_iters (int): Number of warmup iterations for learning rate.
-
 
     Returns:
         ConfigContainer: Configuration for fine-tuning.
@@ -322,9 +313,13 @@ def finetune_config(
 
     model_cfg.seq_length = seq_length
 
+    # Training hyperparameters
+    train_iters = 1000
+    lr_warmup_iters = 50
+    min_lr = 0.0
+
     use_distributed_optimizer = get_distributed_optimizer_setting(peft_scheme)
-    if lr is None:
-        lr = get_default_learning_rate(peft_scheme)
+    lr = get_default_learning_rate(peft_scheme)
 
     opt_config, scheduler = create_optimizer_and_scheduler_config(
         lr=lr,

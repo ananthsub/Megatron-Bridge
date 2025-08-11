@@ -239,15 +239,8 @@ def finetune_config(
     pretrained_checkpoint: str,
     dir: Optional[str] = None,
     name: str = "default",
-    # Training hyperparameters
-    train_iters: int = 1000,
     packed_sequence: bool = False,
-    # PEFT settings
-    peft_scheme: Optional[str] = "lora",  # "lora", "dora", or None for full supervised fine-tuning
-    # Learning rate (auto-adjusted based on PEFT scheme)
-    lr: Optional[float] = None,  # Will be set based on peft_scheme
-    min_lr: float = 0,
-    lr_warmup_iters: int = 50,
+    peft_scheme: Optional[str] = "lora",
 ) -> ConfigContainer:
     """
     Create a fine-tuning configuration for Llama3.2 3B model.
@@ -264,15 +257,10 @@ def finetune_config(
                                    using AutoBridge.import_ckpt().
         dir (Optional[str]): Directory for saving logs and checkpoints.
         name (str): Name of the fine-tuning run.
-        train_iters (int): Total number of training iterations.
         packed_sequence (bool): Whether to use packed sequences for better efficiency.
                        Automatically configures sequence length (4096 vs 2048) and batch size (8 vs 128).
         peft_scheme (Optional[str]): PEFT scheme to use. Options: "lora", "dora", or None for full fine-tuning.
                     Defaults to "lora". Uses fixed dim=8 and alpha=16 for both LoRA and DoRA.
-        lr (Optional[float]): Learning rate. If None, automatically set to 5e-6 for full fine-tuning
-            or 1e-4 for PEFT schemes.
-        min_lr (float): Minimum learning rate for cosine decay.
-        lr_warmup_iters (int): Number of warmup iterations for the learning rate.
 
     Returns:
         ConfigContainer: Configuration for fine-tuning.
@@ -321,15 +309,18 @@ def finetune_config(
     model_cfg = model_config()
     model_cfg.seq_length = seq_length
 
-    # PEFT-specific model settings (match NeMo behavior)
+    # PEFT-specific model settings
     if peft_config is not None:
         # Some settings currently do not function correctly with PEFT
         model_cfg.cross_entropy_loss_fusion = False
 
-    # Optimizer and scheduler configuration
-    if lr is None:
-        lr = get_default_learning_rate(peft_scheme)
+    # Training hyperparameters
+    train_iters = 1000
+    lr_warmup_iters = 50
+    min_lr = 0.0
 
+    # Optimizer and scheduler configuration
+    lr = get_default_learning_rate(peft_scheme)
     opt_config, scheduler = create_optimizer_and_scheduler_config(
         lr=lr,
         train_iters=train_iters,
