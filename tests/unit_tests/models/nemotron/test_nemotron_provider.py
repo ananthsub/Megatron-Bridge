@@ -22,7 +22,7 @@ from megatron.bridge.models.nemotron import (
     Nemotron4ModelProvider340B,
     NemotronModelProvider,
 )
-from megatron.bridge.training.mlm_compat.activations import squared_relu
+from megatron.bridge.models.nemotron.nemotron_provider import squared_relu
 
 
 @pytest.mark.unit
@@ -35,7 +35,7 @@ class TestNemotronModelProvider:
 
         # Check Nemotron-specific defaults
         assert provider.normalization == "LayerNorm"
-        assert provider.activation_func == squared_relu
+        assert provider.activation_func is squared_relu
         assert provider.position_embedding_type == "rope"
         assert provider.share_embeddings_and_output_weights is False
         assert provider.add_bias_linear is False
@@ -76,7 +76,7 @@ class TestNemotron3ModelProvider4B:
         assert provider.init_method_std == 0.0134
 
         # Check inherited Nemotron defaults
-        assert provider.activation_func == squared_relu
+        assert provider.activation_func is squared_relu
         assert provider.normalization == "LayerNorm"
         assert provider.position_embedding_type == "rope"
 
@@ -95,12 +95,12 @@ class TestNemotron3ModelProvider8B:
         assert provider.hidden_size == 4096
         assert provider.ffn_hidden_size == 16384
         assert provider.num_attention_heads == 32
-        assert provider.num_query_groups is None  # Full attention for 8B
-        assert provider.kv_channels is None
-        assert provider.init_method_std == 0.010
+        assert provider.num_query_groups == 32  # Full attention: None -> num_attention_heads in __post_init__
+        assert provider.kv_channels == 128  # None -> hidden_size // num_attention_heads in __post_init__
+        assert provider.init_method_std == 0.01
 
         # Check inherited Nemotron defaults
-        assert provider.activation_func == squared_relu
+        assert provider.activation_func is squared_relu
         assert provider.normalization == "LayerNorm"
 
 
@@ -118,12 +118,12 @@ class TestNemotron3ModelProvider22B:
         assert provider.hidden_size == 6144
         assert provider.ffn_hidden_size == 24576
         assert provider.num_attention_heads == 48
-        assert provider.num_query_groups is None  # Full attention for 22B
-        assert provider.kv_channels is None
+        assert provider.num_query_groups == 48  # Full attention: None -> num_attention_heads in __post_init__
+        assert provider.kv_channels == 128  # None -> hidden_size // num_attention_heads in __post_init__
         assert provider.init_method_std == 0.008
 
         # Check inherited Nemotron defaults
-        assert provider.activation_func == squared_relu
+        assert provider.activation_func is squared_relu
         assert provider.normalization == "LayerNorm"
 
 
@@ -142,11 +142,11 @@ class TestNemotron4ModelProvider15B:
         assert provider.ffn_hidden_size == 24576
         assert provider.num_attention_heads == 48
         assert provider.num_query_groups == 8  # Uses GQA
-        assert provider.kv_channels is None
+        assert provider.kv_channels == 128  # None -> hidden_size // num_attention_heads in __post_init__
         assert provider.init_method_std == 0.0134
 
         # Check inherited Nemotron defaults
-        assert provider.activation_func == squared_relu
+        assert provider.activation_func is squared_relu
         assert provider.normalization == "LayerNorm"
 
 
@@ -165,11 +165,11 @@ class TestNemotron4ModelProvider340B:
         assert provider.ffn_hidden_size == 73728
         assert provider.num_attention_heads == 96
         assert provider.num_query_groups == 8  # Uses GQA
-        assert provider.kv_channels is None
+        assert provider.kv_channels == 192  # None -> hidden_size // num_attention_heads in __post_init__
         assert provider.init_method_std == 0.0063
 
         # Check inherited Nemotron defaults
-        assert provider.activation_func == squared_relu
+        assert provider.activation_func is squared_relu
         assert provider.normalization == "LayerNorm"
 
 

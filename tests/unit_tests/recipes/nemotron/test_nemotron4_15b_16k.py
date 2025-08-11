@@ -30,17 +30,14 @@ class TestNemotron4_15B_16KPretrainConfig:
         # Should use 16K sequence length
         assert config.dataset.sequence_length == 16384
 
-    def test_pretrain_config_inherits_base_defaults(self):
-        """Test that the 16K variant inherits base configuration."""
+    def test_pretrain_config(self):
+        """Test that the 16K variant configuration."""
         config = pretrain_config()
 
-        # Should inherit the corrected parallelism settings
-        assert config.model.tensor_model_parallel_size == 4
-        assert config.model.pipeline_model_parallel_size == 1
-        assert config.model.context_parallel_size == 1
-        assert config.model.sequence_parallel is True  # Nemotron4 15B uses sequence parallelism
-
-        # Should inherit batch and learning rate settings
+        assert config.model.tensor_model_parallel_size == 2
+        assert config.model.pipeline_model_parallel_size == 2
+        assert config.model.context_parallel_size == 2
+        assert config.model.sequence_parallel is True
         assert config.train.global_batch_size == 32
         assert config.train.micro_batch_size == 2
         assert config.optimizer.lr == 4.5e-5

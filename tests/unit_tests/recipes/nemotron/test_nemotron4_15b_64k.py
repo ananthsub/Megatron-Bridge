@@ -36,8 +36,8 @@ class TestNemotron4_15B_64KPretrainConfig:
 
         # Should inherit the corrected parallelism settings
         assert config.model.tensor_model_parallel_size == 4
-        assert config.model.pipeline_model_parallel_size == 1
-        assert config.model.context_parallel_size == 1
+        assert config.model.pipeline_model_parallel_size == 2
+        assert config.model.context_parallel_size == 4
         assert config.model.sequence_parallel is True  # Nemotron4 15B uses sequence parallelism
 
         # Should inherit batch and learning rate settings

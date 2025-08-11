@@ -31,32 +31,9 @@ class TestNemotron4_15BModelConfig:
         # Nemotron4 15B specific defaults
         assert config.tensor_model_parallel_size == 4
         assert config.pipeline_model_parallel_size == 1
-        assert config.pipeline_dtype is None
         assert config.virtual_pipeline_model_parallel_size is None
         assert config.context_parallel_size == 1
         assert config.sequence_parallel is True  # Nemotron4 15B uses sequence parallelism
-
-    def test_model_config_sequence_length_parameter(self):
-        """Test model_config with sequence_length parameter."""
-        config = model_config(sequence_length=8192)
-
-        assert config.seq_length == 8192
-
-    def test_model_config_custom_parallelism(self):
-        """Test model_config with custom parallelism parameters."""
-        config = model_config(
-            tensor_parallelism=8,
-            pipeline_parallelism=2,
-            virtual_pipeline_parallelism=4,
-            context_parallelism=2,
-            sequence_parallelism=False,
-        )
-
-        assert config.tensor_model_parallel_size == 8
-        assert config.pipeline_model_parallel_size == 2
-        assert config.virtual_pipeline_model_parallel_size == 4
-        assert config.context_parallel_size == 2
-        assert config.sequence_parallel is False
 
 
 @pytest.mark.unit

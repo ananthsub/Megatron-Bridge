@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import pytest
+import torch
 
 from megatron.bridge.models.nemotron import Nemotron3ModelProvider22B
 from megatron.bridge.recipes.nemotron.nemotron3_22b import model_config, pretrain_config
@@ -31,7 +32,7 @@ class TestNemotron3_22BModelConfig:
         # Nemotron3 22B specific defaults
         assert config.tensor_model_parallel_size == 2
         assert config.pipeline_model_parallel_size == 4
-        assert config.pipeline_dtype is None
+        assert config.pipeline_dtype == torch.bfloat16
         assert config.virtual_pipeline_model_parallel_size == 10
         assert config.context_parallel_size == 1
         assert config.sequence_parallel is False
