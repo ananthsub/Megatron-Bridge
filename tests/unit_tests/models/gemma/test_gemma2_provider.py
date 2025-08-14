@@ -66,7 +66,7 @@ class TestGemma2ModelProvider:
         assert provider.final_logit_softcapping == 30.0
 
     @patch("megatron.bridge.models.gemma.gemma2_provider.parallel_state")
-    @patch("megatron.bridge.models.gemma.gemma2_provider.extend_instance")
+    @patch("megatron.bridge.models.gemma.modules.extend_instance")
     def test_gemma2_provider_provide_with_embedding_scaling(self, mock_extend_instance, mock_parallel_state):
         """Test that provide method applies embedding scaling when appropriate."""
         # Mock the parent provide method
@@ -101,7 +101,7 @@ class TestGemma2ModelProvider:
             assert args[0] == mock_model.embedding
 
     @patch("megatron.bridge.models.gemma.gemma2_provider.parallel_state")
-    @patch("megatron.bridge.models.gemma.gemma2_provider.extend_instance")
+    @patch("megatron.bridge.models.gemma.modules.extend_instance")
     def test_gemma2_provider_provide_with_output_layer_scaling(self, mock_extend_instance, mock_parallel_state):
         """Test that provide method applies output layer modifications when appropriate."""
         # Mock the parent provide method
@@ -137,7 +137,7 @@ class TestGemma2ModelProvider:
             assert args[0] == mock_model.output_layer
 
     @patch("megatron.bridge.models.gemma.gemma2_provider.parallel_state")
-    @patch("megatron.bridge.models.gemma.gemma2_provider.extend_instance")
+    @patch("megatron.bridge.models.gemma.modules.extend_instance")
     def test_gemma2_provider_provide_both_stages(self, mock_extend_instance, mock_parallel_state):
         """Test provide method when model is both first and last stage."""
         mock_model = Mock()
