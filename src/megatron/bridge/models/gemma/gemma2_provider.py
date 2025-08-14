@@ -39,6 +39,7 @@ from megatron.core.utils import divide
 from torch import Tensor
 
 from megatron.bridge.models.activations import openai_gelu
+from megatron.bridge.models.gemma.modules import EmbeddingScalingMixin, extend_instance
 from megatron.bridge.models.gpt_provider import GPTModelProvider
 
 
@@ -127,15 +128,11 @@ class Gemma2ModelProvider(GPTModelProvider):
 
         # Apply Embedding Scaling for Gemma2: sqrt(hidden_size)
         if parallel_state.is_pipeline_first_stage(ignore_virtual=False, vp_stage=vp_stage):
-            from megatron.bridge.models.gemma.modules import EmbeddingScalingMixin, extend_instance
-
             extend_instance(model.embedding, EmbeddingScalingMixin)
 
         # Prevents final logits from growing excessively by scaling them to a fixed range
         if parallel_state.is_pipeline_last_stage(ignore_virtual=False, vp_stage=vp_stage):
-            from megatron.bridge.models.gemma.modules import Gemma2OutputLayerMixin, extend_instance
-
-            extend_instance(model.output_layer, Gemma2OutputLayerMixin)
+            extend_instance(model.output_layer, Gemma2OutputLayer)
 
         return model
 

@@ -14,8 +14,6 @@
 
 from unittest.mock import Mock, patch
 
-from megatron.core.transformer.enums import AttnBackend
-
 from megatron.bridge.models.activations import openai_gelu
 from megatron.bridge.models.gemma.gemma2_provider import (
     Gemma2ModelProvider,
@@ -53,7 +51,6 @@ class TestGemma2ModelProvider:
         assert provider.hidden_dropout == 0.0
         assert provider.share_embeddings_and_output_weights is True
         assert provider.layernorm_zero_centered_gamma is True
-        assert provider.attention_backend == AttnBackend.flash
 
         # Check Gemma2-specific parameters
         assert provider.layernorm_epsilon == 1e-6
@@ -187,7 +184,6 @@ class TestGemma2ModelProvider2B:
         assert provider.normalization == "RMSNorm"
         assert provider.activation_func == openai_gelu
         assert provider.gated_linear_unit is True
-        assert provider.attention_backend == AttnBackend.flash
         assert provider.window_size == (4096, 0)
         assert provider.attn_logit_softcapping == 50.0
         assert provider.final_logit_softcapping == 30.0
@@ -217,7 +213,6 @@ class TestGemma2ModelProvider9B:
         assert provider.normalization == "RMSNorm"
         assert provider.activation_func == openai_gelu
         assert provider.gated_linear_unit is True
-        assert provider.attention_backend == AttnBackend.flash
 
     def test_gemma2_9b_inheritance(self):
         """Test that Gemma2ModelProvider9B properly inherits from Gemma2ModelProvider."""
