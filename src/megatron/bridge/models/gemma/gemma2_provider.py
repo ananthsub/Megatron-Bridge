@@ -43,148 +43,6 @@ from megatron.bridge.models.gemma.modules import EmbeddingScalingMixin, extend_i
 from megatron.bridge.models.gpt_provider import GPTModelProvider
 
 
-def gemma2_layer_spec(config: "GPTModelProvider") -> ModuleSpec:
-    """Gemma2-specific layer specification."""
-
-    return ModuleSpec(
-        module=TransformerLayer,
-        submodules=TransformerLayerSubmodules(
-            self_attention=ModuleSpec(
-                module=SelfAttention,
-                params={"attn_mask_type": AttnMaskType.causal},
-                submodules=SelfAttentionSubmodules(
-                    linear_qkv=TELayerNormColumnParallelLinear,
-                    core_attention=Gemma2DotProductAttention,  # use unfused SDPA for attn logit softcapping
-                    linear_proj=TERowParallelLinearLayerNorm,  # post attn RMSNorm
-                ),
-            ),
-            self_attn_bda=get_bias_dropout_add,
-            mlp=ModuleSpec(
-                module=MLP,
-                submodules=MLPSubmodules(
-                    linear_fc1=TELayerNormColumnParallelLinear,
-                    linear_fc2=TERowParallelLinearLayerNorm,  # post mlp RMSNorm
-                ),
-            ),
-            mlp_bda=get_bias_dropout_add,
-        ),
-    )
-
-
-@dataclass
-class Gemma2ModelProvider(GPTModelProvider):
-    """Configuration class for Gemma2 models.
-
-    Extends GPTModelProvider with specific settings optimized for Gemma2 architectures.
-    Includes configurations for normalization, activation functions, and various
-    Gemma2-specific options like attention logit softcapping and sliding window attention.
-    """
-
-    # configs that are common across model sizes
-    normalization: str = "RMSNorm"
-    activation_func: Callable = openai_gelu
-    gated_linear_unit: bool = True
-    position_embedding_type: str = "rope"
-    add_bias_linear: bool = False
-    seq_length: int = 8192
-    kv_channels: int = 256
-    attention_dropout: float = 0.0
-    hidden_dropout: float = 0.0
-    share_embeddings_and_output_weights: bool = True
-    # Note: different behavior compared to NeMo 1.0
-    # NeMo 1.0 does not set layernorm_zero_centered_gamma and instead adds 1 in the HF -> NeMo conversion script
-    # The present implementation is more in line with the official implementation
-    layernorm_zero_centered_gamma: bool = True
-    layernorm_epsilon: float = 1e-6
-    rotary_base: float = 10000
-
-    window_size: tuple[int, int] = (4096, 0)
-    vocab_size: int = 256000
-    gradient_accumulation_fusion: bool = False
-
-    transformer_layer_spec: Union[ModuleSpec, Callable[["GPTModelProvider"], ModuleSpec]] = gemma2_layer_spec
-
-    query_pre_attn_scalar: int = 224
-    attn_logit_softcapping: float = 50.0
-    final_logit_softcapping: float = 30.0
-
-    def provide(self, pre_process=None, post_process=None, vp_stage=None, tokenizer=None) -> "MCoreGPTModel":
-        """Configure and instantiate a Megatron Core Gemma2 model.
-
-        Extends the base configuration with Gemma2-specific embedding scaling and output layer modifications.
-
-        Args:
-            pre_process: Whether to include pre-processing in the model
-            post_process: Whether to include post-processing in the model
-            vp_stage: Virtual pipeline stage
-            tokenizer: Tokenizer used with the model
-
-        Returns:
-            MCoreGPTModel: Configured Megatron Core GPT model instance
-        """
-        model = super().provide(
-            pre_process=pre_process, post_process=post_process, vp_stage=vp_stage, tokenizer=tokenizer
-        )
-
-        # Apply Embedding Scaling for Gemma2: sqrt(hidden_size)
-        if parallel_state.is_pipeline_first_stage(ignore_virtual=False, vp_stage=vp_stage):
-            extend_instance(model.embedding, EmbeddingScalingMixin)
-
-        # Prevents final logits from growing excessively by scaling them to a fixed range
-        if parallel_state.is_pipeline_last_stage(ignore_virtual=False, vp_stage=vp_stage):
-            extend_instance(model.output_layer, Gemma2OutputLayer)
-
-        return model
-
-
-@dataclass
-class Gemma2ModelProvider2B(Gemma2ModelProvider):
-    """Configuration for a 2B parameter Gemma2 model.
-
-    Specific configuration for the 2B Gemma2 model with 26 layers,
-    2304 hidden size, and 8 attention heads.
-    """
-
-    num_layers: int = 26
-    hidden_size: int = 2304
-    num_attention_heads: int = 8
-    num_query_groups: int = 4
-    ffn_hidden_size: int = 9216
-    query_pre_attn_scalar: int = 256
-
-
-@dataclass
-class Gemma2ModelProvider9B(Gemma2ModelProvider):
-    """Configuration for a 9B parameter Gemma2 model.
-
-    Specific configuration for the 9B Gemma2 model with 42 layers,
-    3584 hidden size, and 16 attention heads.
-    """
-
-    num_layers: int = 42
-    hidden_size: int = 3584
-    num_attention_heads: int = 16
-    num_query_groups: int = 8
-    ffn_hidden_size: int = 14336
-    query_pre_attn_scalar: int = 256
-
-
-@dataclass
-class Gemma2ModelProvider27B(Gemma2ModelProvider):
-    """Configuration for a 27B parameter Gemma2 model.
-
-    Specific configuration for the 27B Gemma2 model with 46 layers,
-    4608 hidden size, and 32 attention heads.
-    """
-
-    num_layers: int = 46
-    hidden_size: int = 4608
-    num_attention_heads: int = 32
-    num_query_groups: int = 16
-    ffn_hidden_size: int = 36864
-    query_pre_attn_scalar: int = 144
-
-
 class Gemma2DotProductAttention(MegatronModule):
     """
     Region where selective activation recomputation is applied.
@@ -440,3 +298,145 @@ def get_swa(seq_q: int, seq_kv: int, window_size: tuple[int, int]) -> torch.Tens
     ml = ~ml
 
     return ml
+
+
+def gemma2_layer_spec(config: "GPTModelProvider") -> ModuleSpec:
+    """Gemma2-specific layer specification."""
+
+    return ModuleSpec(
+        module=TransformerLayer,
+        submodules=TransformerLayerSubmodules(
+            self_attention=ModuleSpec(
+                module=SelfAttention,
+                params={"attn_mask_type": AttnMaskType.causal},
+                submodules=SelfAttentionSubmodules(
+                    linear_qkv=TELayerNormColumnParallelLinear,
+                    core_attention=Gemma2DotProductAttention,  # use unfused SDPA for attn logit softcapping
+                    linear_proj=TERowParallelLinearLayerNorm,  # post attn RMSNorm
+                ),
+            ),
+            self_attn_bda=get_bias_dropout_add,
+            mlp=ModuleSpec(
+                module=MLP,
+                submodules=MLPSubmodules(
+                    linear_fc1=TELayerNormColumnParallelLinear,
+                    linear_fc2=TERowParallelLinearLayerNorm,  # post mlp RMSNorm
+                ),
+            ),
+            mlp_bda=get_bias_dropout_add,
+        ),
+    )
+
+
+@dataclass
+class Gemma2ModelProvider(GPTModelProvider):
+    """Configuration class for Gemma2 models.
+
+    Extends GPTModelProvider with specific settings optimized for Gemma2 architectures.
+    Includes configurations for normalization, activation functions, and various
+    Gemma2-specific options like attention logit softcapping and sliding window attention.
+    """
+
+    # configs that are common across model sizes
+    normalization: str = "RMSNorm"
+    activation_func: Callable = openai_gelu
+    gated_linear_unit: bool = True
+    position_embedding_type: str = "rope"
+    add_bias_linear: bool = False
+    seq_length: int = 8192
+    kv_channels: int = 256
+    attention_dropout: float = 0.0
+    hidden_dropout: float = 0.0
+    share_embeddings_and_output_weights: bool = True
+    # Note: different behavior compared to NeMo 1.0
+    # NeMo 1.0 does not set layernorm_zero_centered_gamma and instead adds 1 in the HF -> NeMo conversion script
+    # The present implementation is more in line with the official implementation
+    layernorm_zero_centered_gamma: bool = True
+    layernorm_epsilon: float = 1e-6
+    rotary_base: float = 10000
+
+    window_size: tuple[int, int] = (4096, 0)
+    vocab_size: int = 256000
+    gradient_accumulation_fusion: bool = False
+
+    transformer_layer_spec: Union[ModuleSpec, Callable[["GPTModelProvider"], ModuleSpec]] = gemma2_layer_spec
+
+    query_pre_attn_scalar: int = 224
+    attn_logit_softcapping: float = 50.0
+    final_logit_softcapping: float = 30.0
+
+    def provide(self, pre_process=None, post_process=None, vp_stage=None, tokenizer=None) -> "MCoreGPTModel":
+        """Configure and instantiate a Megatron Core Gemma2 model.
+
+        Extends the base configuration with Gemma2-specific embedding scaling and output layer modifications.
+
+        Args:
+            pre_process: Whether to include pre-processing in the model
+            post_process: Whether to include post-processing in the model
+            vp_stage: Virtual pipeline stage
+            tokenizer: Tokenizer used with the model
+
+        Returns:
+            MCoreGPTModel: Configured Megatron Core GPT model instance
+        """
+        model = super().provide(
+            pre_process=pre_process, post_process=post_process, vp_stage=vp_stage, tokenizer=tokenizer
+        )
+
+        # Apply Embedding Scaling for Gemma2: sqrt(hidden_size)
+        if parallel_state.is_pipeline_first_stage(ignore_virtual=False, vp_stage=vp_stage):
+            extend_instance(model.embedding, EmbeddingScalingMixin)
+
+        # Prevents final logits from growing excessively by scaling them to a fixed range
+        if parallel_state.is_pipeline_last_stage(ignore_virtual=False, vp_stage=vp_stage):
+            extend_instance(model.output_layer, Gemma2OutputLayer)
+
+        return model
+
+
+@dataclass
+class Gemma2ModelProvider2B(Gemma2ModelProvider):
+    """Configuration for a 2B parameter Gemma2 model.
+
+    Specific configuration for the 2B Gemma2 model with 26 layers,
+    2304 hidden size, and 8 attention heads.
+    """
+
+    num_layers: int = 26
+    hidden_size: int = 2304
+    num_attention_heads: int = 8
+    num_query_groups: int = 4
+    ffn_hidden_size: int = 9216
+    query_pre_attn_scalar: int = 256
+
+
+@dataclass
+class Gemma2ModelProvider9B(Gemma2ModelProvider):
+    """Configuration for a 9B parameter Gemma2 model.
+
+    Specific configuration for the 9B Gemma2 model with 42 layers,
+    3584 hidden size, and 16 attention heads.
+    """
+
+    num_layers: int = 42
+    hidden_size: int = 3584
+    num_attention_heads: int = 16
+    num_query_groups: int = 8
+    ffn_hidden_size: int = 14336
+    query_pre_attn_scalar: int = 256
+
+
+@dataclass
+class Gemma2ModelProvider27B(Gemma2ModelProvider):
+    """Configuration for a 27B parameter Gemma2 model.
+
+    Specific configuration for the 27B Gemma2 model with 46 layers,
+    4608 hidden size, and 32 attention heads.
+    """
+
+    num_layers: int = 46
+    hidden_size: int = 4608
+    num_attention_heads: int = 32
+    num_query_groups: int = 16
+    ffn_hidden_size: int = 36864
+    query_pre_attn_scalar: int = 144
