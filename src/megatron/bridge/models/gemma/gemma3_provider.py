@@ -113,6 +113,8 @@ class Gemma3ModelProvider(GPTModelProvider):
     rotary_base: tuple[int, int] = (10_000, 1_000_000)  # (local, global)
     share_embeddings_and_output_weights: bool = True
 
+    rope_scaling_factor: float = 8.0  # Provide method requires this to be set
+
     # norm
     normalization: str = "RMSNorm"
     layernorm_zero_centered_gamma: bool = True  # x * (1 + w)
@@ -135,7 +137,7 @@ class Gemma3ModelProvider(GPTModelProvider):
     is_vision_language: bool = False
     flash_decode: bool = False
     gradient_accumulation_fusion: bool = False
-    transformer_layer_spec: Union[ModuleSpec, Callable["GPTModelProvider"], ModuleSpec] = gemma3_layer_spec
+    transformer_layer_spec: Union[ModuleSpec, Callable[["GPTModelProvider"], ModuleSpec]] = gemma3_layer_spec
     scatter_embedding_sequence_parallel: bool = True
 
     def provide(self, pre_process=None, post_process=None, vp_stage=None, tokenizer=None) -> "MCoreGPTModel":
