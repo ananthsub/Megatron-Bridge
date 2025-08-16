@@ -553,7 +553,12 @@ class CommOverlapConfig:
                 )
                 model_config.tp_comm_overlap_cfg = None
             else:
+                # ub_cfgs is a dataclass, however TE needs a dict, so convert here
                 model_config.tp_comm_overlap_cfg = asdict(comm_overlap_cfg.tp_comm_overlap_cfg)
+                # remove keys with None values from dictionary to match TE's expectations
+                model_config.tp_comm_overlap_cfg = {
+                    key: value for key, value in model_config.tp_comm_overlap_cfg.items() if value is not None
+                }
             model_config.tp_comm_bootstrap_backend = comm_overlap_cfg.tp_comm_bootstrap_backend
 
         # Data parallel overlap is only available with the Megatron DDP and Distributed optimizer
