@@ -308,7 +308,7 @@ def forward_step(state: GlobalState, data_iterator: Iterable, model: GPTModel) -
     straggler_timer = state.straggler_timer
 
     config = get_model_config(model)
-    use_mtp = hasattr(config, "mtp_num_layers") and config.mtp_num_layers is not None and config.mtp_num_layers > 0
+    use_mtp = getattr(config, "mtp_num_layers", 0) > 0
 
     timers("batch-generator", log_level=2).start()
     with straggler_timer(bdata=True):
