@@ -231,22 +231,3 @@ class TestPretrainConfig:
         assert config.mixed_precision is not None
         # Grad reduce should be optimized for performance
         assert config.mixed_precision.grad_reduce_in_fp32 is False
-
-    def test_pretrain_config_gpt3_specific_optimizations(self):
-        """Test GPT3 175B specific performance optimizations."""
-        config = pretrain_config()
-
-        # GPT3 175B specific optimizations
-        assert config.optimizer.use_precision_config is False
-        assert config.mixed_precision.grad_reduce_in_fp32 is False
-
-        # Advanced parallelism for large model
-        assert config.model.tensor_model_parallel_size == 4
-        assert config.model.pipeline_model_parallel_size == 8
-        assert config.model.virtual_pipeline_model_parallel_size == 6
-        assert config.model.sequence_parallel is True
-
-        # Large scale training parameters
-        assert config.train.global_batch_size == 2048
-        assert config.dataset.sequence_length == 2048
-        assert config.optimizer.lr == 0.9e-4

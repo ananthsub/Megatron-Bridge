@@ -153,7 +153,7 @@ def pretrain_config(
         lr_decay_iters=train_iters,
         max_lr=lr,
     )
-    opt_config.use_precision_config = False
+    opt_config.use_precision_aware_optimizer = False
 
     if isinstance(precision_config, str):
         precision_config = get_mixed_precision_config(precision_config)
