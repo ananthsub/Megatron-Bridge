@@ -110,6 +110,10 @@ def setup(
     # TODO: Freeze state.cfg
 
     cfg.validate()
+    # Apply DeepEP configuration if provided
+    if cfg.deep_ep is not None:
+        cfg.deep_ep.setup(cfg.model)
+
     # Apply mixed precision configuration if provided
     if cfg.mixed_precision is not None:
         if isinstance(cfg.mixed_precision, str):

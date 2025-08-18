@@ -28,6 +28,7 @@ from megatron.bridge.models import GPTModelProvider, T5ModelProvider
 from megatron.bridge.models.mamba.mamba_provider import MambaProvider
 from megatron.bridge.peft.base import PEFT
 from megatron.bridge.training.comm_overlap import CommOverlapConfig
+from megatron.bridge.training.deepep import DeepEPConfig
 from megatron.bridge.training.mixed_precision import MixedPrecisionConfig
 from megatron.bridge.training.tokenizers.config import TokenizerConfig
 from megatron.bridge.training.utils.config_utils import _ConfigContainerBase as Container
@@ -728,6 +729,7 @@ class ConfigContainer(Container):
     peft: Optional[PEFT] = None
     comm_overlap: Optional[CommOverlapConfig] = None
     mixed_precision: Optional[Union[MixedPrecisionConfig, str]] = None
+    deep_ep: Optional[DeepEPConfig] = None
 
     def get_data_parallel_size(self, world_size: int) -> int:
         """Calculate the data parallel size based on the model configuration."""
