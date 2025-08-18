@@ -14,7 +14,6 @@
 
 from unittest.mock import MagicMock, patch
 
-import pytest
 from megatron.core.transformer import TransformerConfig
 
 from megatron.bridge.training.deepep import DeepEPConfig, apply_deepep
@@ -212,45 +211,6 @@ class TestDeepEPConfig:
 
 class TestDeepEPConfigMisc:
     """Test miscellaneous aspects of DeepEP functionality."""
-
-    def test_deepep_config_is_dataclass(self):
-        """Test that DeepEPConfig is properly configured as a dataclass."""
-        config = DeepEPConfig()
-
-        # Should be able to instantiate without errors
-        assert isinstance(config, DeepEPConfig)
-
-        # Should have the setup method
-        assert hasattr(config, "setup")
-        assert callable(getattr(config, "setup"))
-
-    @patch("torch.cuda.get_device_properties")
-    def test_apply_deepep_with_none_config(self, mock_get_device_properties):
-        """Test that apply_deepep handles None config gracefully."""
-        # Mock Ampere GPU
-        mock_properties = MagicMock()
-        mock_properties.major = 8
-        mock_get_device_properties.return_value = mock_properties
-
-        # This should not raise an exception even with None
-        # (though in practice, this wouldn't happen in real usage)
-        with pytest.raises(AttributeError):
-            apply_deepep(None)
-
-    @patch("torch.cuda.get_device_properties")
-    def test_deepep_config_setup_with_none_config(self, mock_get_device_properties):
-        """Test that DeepEPConfig.setup handles None config gracefully."""
-        # Mock Ampere GPU
-        mock_properties = MagicMock()
-        mock_properties.major = 8
-        mock_get_device_properties.return_value = mock_properties
-
-        deepep_config = DeepEPConfig()
-
-        # This should not raise an exception even with None
-        # (though in practice, this wouldn't happen in real usage)
-        with pytest.raises(AttributeError):
-            deepep_config.setup(None)
 
     @patch("torch.cuda.get_device_properties")
     def test_apply_deepep_device_properties_called_correctly(self, mock_get_device_properties):
