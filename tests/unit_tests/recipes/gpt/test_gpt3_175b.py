@@ -73,7 +73,7 @@ class TestPretrainConfig:
         assert config.optimizer.weight_decay == 0.1
         assert config.optimizer.bf16 is True
         assert config.optimizer.fp16 is False
-        assert config.optimizer.use_precision_config is False
+        assert config.optimizer.use_precision_aware_optimizer is False
 
         # Check dataset configuration (should be in mock mode)
         assert config.dataset.sequence_length == 2048
