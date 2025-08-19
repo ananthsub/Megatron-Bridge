@@ -23,11 +23,18 @@ from megatron.bridge.utils.import_utils import MISSING_NVRX_MSG
 
 
 try:
-    import nvidia_resiliency_ext.straggler as straggler
+    # Try the newer version first (nvidia-resiliency-ext >= 0.4)
+    import nvidia_resiliency_ext.attribution.straggler as straggler
 
     HAVE_NVRX = True
 except (ImportError, ModuleNotFoundError):
-    HAVE_NVRX = False
+    try:
+        # Fall back to the older version (nvidia-resiliency-ext < 0.4)
+        import nvidia_resiliency_ext.straggler as straggler
+
+        HAVE_NVRX = True
+    except (ImportError, ModuleNotFoundError):
+        HAVE_NVRX = False
 
 
 class NVRxStragglerDetectionManager:

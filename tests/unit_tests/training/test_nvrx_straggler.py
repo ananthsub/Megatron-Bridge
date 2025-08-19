@@ -32,7 +32,12 @@ def mock_nvidia_resiliency_ext():
     """
     # Store original state
     original_modules = {}
-    modules_to_mock = ["nvidia_resiliency_ext", "nvidia_resiliency_ext.straggler"]
+    modules_to_mock = [
+        "nvidia_resiliency_ext",
+        "nvidia_resiliency_ext.attribution",
+        "nvidia_resiliency_ext.attribution.straggler",
+        "nvidia_resiliency_ext.straggler",
+    ]
 
     for module in modules_to_mock:
         if module in sys.modules:
@@ -40,10 +45,17 @@ def mock_nvidia_resiliency_ext():
 
     # Mock the modules
     mock_module = MagicMock()
+    mock_attribution = MagicMock()
     mock_straggler = MagicMock()
+
+    # Set up the hierarchy: nvidia_resiliency_ext -> attribution -> straggler
+    mock_attribution.straggler = mock_straggler
+    mock_module.attribution = mock_attribution
     mock_module.straggler = mock_straggler
 
     sys.modules["nvidia_resiliency_ext"] = mock_module
+    sys.modules["nvidia_resiliency_ext.attribution"] = mock_attribution
+    sys.modules["nvidia_resiliency_ext.attribution.straggler"] = mock_straggler
     sys.modules["nvidia_resiliency_ext.straggler"] = mock_straggler
 
     yield mock_module
