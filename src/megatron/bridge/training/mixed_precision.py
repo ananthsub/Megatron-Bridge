@@ -78,6 +78,13 @@ class MixedPrecisionConfig:
         if self.fp8_param is None:
             self.fp8_param = self.fp8_param_gather
 
+        # Validate that mxfp8 recipe requires reuse_grad_buf_for_mxfp8_param_ag=True when fp8_param_gather=True
+        if self.fp8_param_gather and self.fp8_recipe == "mxfp8":
+            assert self.reuse_grad_buf_for_mxfp8_param_ag, (
+                "When fp8_param_gather=True and fp8_recipe='mxfp8', "
+                "reuse_grad_buf_for_mxfp8_param_ag must be set to True"
+            )
+
     def setup(
         self,
         model_config: GPTModelProvider | T5ModelProvider,
