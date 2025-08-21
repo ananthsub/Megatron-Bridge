@@ -59,6 +59,7 @@ class MixedPrecisionConfig:
     hysteresis: int = 2
     num_layers_at_start_in_bf16: int = 0
     num_layers_at_end_in_bf16: int = 0
+    reuse_grad_buf_for_mxfp8_param_ag: bool = False
 
     def __setattr__(self, name: str, value) -> None:
         # Use object.__setattr__ to avoid recursion
@@ -217,7 +218,8 @@ def bf16_with_mxfp8_mixed() -> MixedPrecisionConfig:
     cfg = bf16_mixed()
     cfg.fp8 = "hybrid"
     cfg.fp8_recipe = "mxfp8"
-    cfg.fp8_param_gather = False
+    cfg.fp8_param_gather = True
+    cfg.reuse_grad_buf_for_mxfp8_param_ag = True
     return cfg
 
 
@@ -231,7 +233,8 @@ def fp16_with_mxfp8_mixed() -> MixedPrecisionConfig:
     cfg = fp16_mixed()
     cfg.fp8 = "hybrid"
     cfg.fp8_recipe = "mxfp8"
-    cfg.fp8_param_gather = False
+    cfg.fp8_param_gather = True
+    cfg.reuse_grad_buf_for_mxfp8_param_ag = True
     return cfg
 
 
