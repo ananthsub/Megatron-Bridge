@@ -564,7 +564,7 @@ class TestMixedPrecisionRecipes:
         assert config.fp8_param_gather is True
         assert config.reuse_grad_buf_for_mxfp8_param_ag is True
         # Verify fp8_param is initialized from fp8_param_gather
-        assert config.fp8_param is False
+        assert config.fp8_param is True
 
     def test_fp16_with_mxfp8_mixed(self):
         config = fp16_with_mxfp8_mixed()
@@ -579,7 +579,7 @@ class TestMixedPrecisionRecipes:
         assert config.fp8_param_gather is True
         assert config.reuse_grad_buf_for_mxfp8_param_ag is True
         # Verify fp8_param is initialized from fp8_param_gather
-        assert config.fp8_param is False
+        assert config.fp8_param is True
 
     def test_bf16_with_fp8_current_scaling_mixed(self):
         config = bf16_with_fp8_current_scaling_mixed()
