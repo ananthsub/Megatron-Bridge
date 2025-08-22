@@ -38,7 +38,7 @@ except (ImportError, ModuleNotFoundError):
 
 
 class NVRxStragglerDetectionManager:
-    """Manager for NVIDIA Resiliency Extension straggler detection in lightning-free training loops."""
+    """Manager for NVIDIA Resiliency Extension straggler detection."""
 
     def __init__(self, config: NVRxStragglerDetectionConfig):
         """
@@ -51,6 +51,8 @@ class NVRxStragglerDetectionManager:
             ImportError: If nvidia-resiliency-ext is not available.
             ValueError: If invalid configuration is provided.
         """
+        if not HAVE_NVRX:
+            raise ImportError(MISSING_NVRX_MSG)
         self.config = config
         self.logger = logging.getLogger(config.logger_name)
         self.initialized = False
@@ -69,9 +71,6 @@ class NVRxStragglerDetectionManager:
         Raises:
             RuntimeError: If already initialized.
         """
-        if not HAVE_NVRX:
-            raise ImportError(MISSING_NVRX_MSG)
-
         if self.initialized:
             raise RuntimeError("NVRxStragglerDetectionManager is already initialized.")
 

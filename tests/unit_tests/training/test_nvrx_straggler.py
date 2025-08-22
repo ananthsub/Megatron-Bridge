@@ -521,6 +521,29 @@ class TestCheckNVRxStragglerDetection:
         mock_manager.check_stragglers.assert_called_once_with(0)
 
 
+class TestNVRxNotAvailable:
+    """Test behavior when HAVE_NVRX is False (nvidia-resiliency-ext not available)."""
+
+    @pytest.fixture
+    def config(self):
+        """Create a test configuration."""
+        return NVRxStragglerDetectionConfig(
+            enabled=True,
+            report_time_interval=100.0,
+            calc_relative_gpu_perf=True,
+            calc_individual_gpu_perf=True,
+            stop_if_detected=False,
+            logger_name="test_logger",
+        )
+
+    def test_init_raises_import_error_without_nvrx(self, config):
+        """Test that __init__ raises ImportError when HAVE_NVRX is False."""
+        with patch("megatron.bridge.training.nvrx_straggler.HAVE_NVRX", False):
+            # Should raise ImportError during instantiation with the expected message
+            with pytest.raises(ImportError, match="nvidia-resiliency-ext is not available"):
+                NVRxStragglerDetectionManager(config)
+
+
 class TestIntegration:
     """Integration tests combining multiple components."""
 
