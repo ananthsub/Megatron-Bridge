@@ -54,6 +54,7 @@ from megatron.bridge.models.llama import (
     Llama32ModelProvider3B,
     LlamaModelProvider,
 )
+<<<<<<< HEAD
 from megatron.bridge.models.mamba.mamba_provider import (
     MambaProvider,
     MambaProvider1_3B,
@@ -72,6 +73,15 @@ from megatron.bridge.models.mamba.nemotron_h_provider import (
     NemotronHModelProvider,
     NemotronNano9Bv2Provider,
     NemotronNano12Bv2Provider,
+=======
+from megatron.bridge.models.nemotron import (
+    Nemotron3ModelProvider4B,
+    Nemotron3ModelProvider8B,
+    Nemotron3ModelProvider22B,
+    Nemotron4ModelProvider15B,
+    Nemotron4ModelProvider340B,
+    NemotronModelProvider,
+>>>>>>> c3d509cf (nemotron model provider)
 )
 from megatron.bridge.models.qwen import (
     Qwen2ModelProvider,
