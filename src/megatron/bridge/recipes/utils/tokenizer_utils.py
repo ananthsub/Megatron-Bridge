@@ -12,4 +12,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-DEFAULT_NULL_TOKENIZER_VOCAB_SIZE: int = 32000
+# nvidia/megatron-gpt-345m vocab size
+DEFAULT_NULL_TOKENIZER_VOCAB_SIZE: int = 52027
