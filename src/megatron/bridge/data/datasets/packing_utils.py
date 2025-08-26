@@ -14,7 +14,7 @@
 
 import collections
 import logging
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import numpy as np
 from tqdm import tqdm
@@ -100,7 +100,7 @@ def first_fit_shuffle(seqlens: List[int], pack_size: int) -> List[List[int]]:
     return first_fit(shuffled_seqlens, pack_size)
 
 
-def create_hist(dataset: np.array, truncate_seq_len: int):
+def create_hist(dataset: np.array, truncate_seq_len: int) -> Tuple[Dict[int, List[Dict]], List[int]]:
     """
     Creates a histogram of sequence lengths from a tokenized dataset.
 
@@ -143,7 +143,7 @@ def create_hist(dataset: np.array, truncate_seq_len: int):
 
 def create_packing_strategy(
     histogram: List[int], pack_size: int, packing_algorithm: str = "first_fit"
-) -> List[List[int]]:
+) -> Tuple[List[List[int]], Dict[str, int]]:
     """
     Packs sequences into bins using the specified packing algorithm.
 
