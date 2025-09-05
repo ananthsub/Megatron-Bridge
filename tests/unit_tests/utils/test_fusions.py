@@ -64,6 +64,7 @@ class TestCanEnableApplyRopeFusion:
         original_import = __import__
 
         with (
+            patch.dict(os.environ, {"MEGATRON_SUPPRESS_FUSION_WARNINGS": "0"}),
             patch("megatron.bridge.utils.fusions.LOG_FUSION_DISABLE", True),
             patch("builtins.__import__") as mock_import,
         ):
@@ -87,6 +88,7 @@ class TestCanEnableApplyRopeFusion:
         original_import = __import__
 
         with (
+            patch.dict(os.environ, {"MEGATRON_SUPPRESS_FUSION_WARNINGS": "0"}),
             patch("megatron.bridge.utils.fusions.LOG_FUSION_DISABLE", True),
             patch("builtins.__import__") as mock_import,
             patch("megatron.core.utils.is_te_min_version", return_value=False),
@@ -113,6 +115,7 @@ class TestCanEnableApplyRopeFusion:
         original_import = __import__
 
         with (
+            patch.dict(os.environ, {"MEGATRON_SUPPRESS_FUSION_WARNINGS": "0"}),
             patch("megatron.bridge.utils.fusions.LOG_FUSION_DISABLE", True),
             patch("builtins.__import__") as mock_import,
             patch("megatron.core.utils.is_te_min_version", return_value=True),
@@ -143,6 +146,7 @@ class TestCanEnableApplyRopeFusion:
         original_import = __import__
 
         with (
+            patch.dict(os.environ, {"MEGATRON_SUPPRESS_FUSION_WARNINGS": "0"}),
             patch("megatron.bridge.utils.fusions.LOG_FUSION_DISABLE", True),
             patch("builtins.__import__") as mock_import,
             patch("megatron.core.utils.is_te_min_version", return_value=True),
@@ -170,6 +174,7 @@ class TestCanEnableApplyRopeFusion:
         original_import = __import__
 
         with (
+            patch.dict(os.environ, {"MEGATRON_SUPPRESS_FUSION_WARNINGS": "1"}),
             patch("megatron.bridge.utils.fusions.LOG_FUSION_DISABLE", False),
             patch("builtins.__import__") as mock_import,
         ):
@@ -215,6 +220,7 @@ class TestCanEnableGradientAccumulationFusion:
         original_import = __import__
 
         with (
+            patch.dict(os.environ, {"MEGATRON_SUPPRESS_FUSION_WARNINGS": "0"}),
             patch("megatron.bridge.utils.fusions.LOG_FUSION_DISABLE", True),
             patch("builtins.__import__") as mock_import,
         ):
@@ -261,6 +267,7 @@ class TestCanEnableBiasDropoutFusion:
         original_import = __import__
 
         with (
+            patch.dict(os.environ, {"MEGATRON_SUPPRESS_FUSION_WARNINGS": "0"}),
             patch("megatron.bridge.utils.fusions.LOG_FUSION_DISABLE", True),
             patch("builtins.__import__") as mock_import,
         ):
@@ -309,6 +316,7 @@ class TestCanEnableMaskedSoftmaxFusion:
         original_import = __import__
 
         with (
+            patch.dict(os.environ, {"MEGATRON_SUPPRESS_FUSION_WARNINGS": "0"}),
             patch("megatron.bridge.utils.fusions.LOG_FUSION_DISABLE", True),
             patch("builtins.__import__") as mock_import,
         ):
@@ -348,7 +356,11 @@ class TestValidateRopeFusionCompatibility:
         mock_config.multi_latent_attention = True
         mock_config.rotary_interleaved = False
 
-        with patch("megatron.bridge.utils.fusions.LOG_FUSION_DISABLE", True), caplog.at_level(logging.WARNING):
+        with (
+            patch.dict(os.environ, {"MEGATRON_SUPPRESS_FUSION_WARNINGS": "0"}),
+            patch("megatron.bridge.utils.fusions.LOG_FUSION_DISABLE", True),
+            caplog.at_level(logging.WARNING),
+        ):
             result = validate_rope_fusion_compatibility(mock_config)
 
         assert result is True
@@ -381,6 +393,7 @@ class TestValidateRopeFusionCompatibility:
         with (
             patch("megatron.core.utils.is_te_min_version", return_value=False),
             patch("megatron.core.utils.get_te_version", return_value="1.0.0"),
+            patch.dict(os.environ, {"MEGATRON_SUPPRESS_FUSION_WARNINGS": "0"}),
             patch("megatron.bridge.utils.fusions.LOG_FUSION_DISABLE", True),
         ):
             with caplog.at_level(logging.WARNING):
@@ -401,6 +414,7 @@ class TestValidateRopeFusionCompatibility:
 
         with (
             patch("builtins.__import__") as mock_import,
+            patch.dict(os.environ, {"MEGATRON_SUPPRESS_FUSION_WARNINGS": "0"}),
             patch("megatron.bridge.utils.fusions.LOG_FUSION_DISABLE", True),
         ):
 
@@ -521,6 +535,7 @@ class TestMultipleFusionChecks:
         original_import = __import__
 
         with (
+            patch.dict(os.environ, {"MEGATRON_SUPPRESS_FUSION_WARNINGS": "0"}),
             patch("megatron.bridge.utils.fusions.LOG_FUSION_DISABLE", True),
             patch("builtins.__import__") as mock_import,
         ):
