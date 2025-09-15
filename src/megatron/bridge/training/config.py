@@ -855,12 +855,15 @@ class ConfigContainer(Container):
         Ensures compatibility between different configuration settings.
         """
 
-        # For config definitions coming from Megatron Core, run the delayed post-init checks
+        # Run the delayed post-init checks for all sub-configs, if they have a finalize method
         if isinstance(self.dataset, GPTDatasetConfig):
             self.dataset.finalize()
-        self.ddp.finalize()
-        self.optimizer.finalize()
-        self.model.finalize()
+        if hasattr(self.ddp, "finalize"):
+            self.ddp.finalize()
+        if hasattr(self.optimizer, "finalize"):
+            self.optimizer.finalize()
+        if hasattr(self.model, "finalize"):
+            self.model.finalize()
 
         # Re-run post-inits of sub-configs
         for f in fields(self):
