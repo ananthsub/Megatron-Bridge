@@ -329,7 +329,7 @@ class SchedulerConfig:
     wd_incr_steps: Optional[int] = field(init=False, default=None)
     wsd_decay_steps: Optional[int] = field(init=False, default=None)
 
-    def __post_init__(self):
+    def finalize(self):
         """Post-initialization checks for scheduler config."""
         if self.start_weight_decay is not None:
             assert self.start_weight_decay >= 0.0, "start_weight_decay should be positive."
@@ -556,7 +556,7 @@ class CheckpointConfig:
     replication_factor: int = 2
     """Number of machines storing the replica of a given rank's data."""
 
-    def __post_init__(self) -> None:
+    def finalize(self) -> None:
         """Post-initialization checks for checkpoint config."""
         if self.load_main_params_from_ckpt:
             assert not self.load_optim, "load_main_params_from_ckpt must be used with load_optim=False"
@@ -690,7 +690,7 @@ class ProfilingConfig:
     record_shapes: bool = False
     """Record shapes of tensors."""
 
-    def __post_init__(self) -> None:
+    def finalize(self) -> None:
         """Validate profiling configuration."""
         assert not (self.use_pytorch_profiler and self.use_nsys_profiler), (
             "Exactly one of pytorch or nsys profiler should be enabled, not both, when ProfilingConfig is active."
@@ -780,7 +780,7 @@ class NVRxStragglerDetectionConfig:
     logger_name: str = "megatron_hub.NVRxStragglerDetection"
     """Logger name for straggler detection messages."""
 
-    def __post_init__(self) -> None:
+    def finalize(self) -> None:
         """Validate NVRx straggler detection configuration."""
         if self.enabled:
             if not (self.calc_relative_gpu_perf or self.calc_individual_gpu_perf):
@@ -855,7 +855,6 @@ class ConfigContainer(Container):
         Ensures compatibility between different configuration settings.
         """
 
-        # Run the delayed post-init checks for all sub-configs, if they have a finalize method
         if isinstance(self.dataset, GPTDatasetConfig):
             self.dataset.finalize()
         if hasattr(self.ddp, "finalize"):
@@ -864,11 +863,17 @@ class ConfigContainer(Container):
             self.optimizer.finalize()
         if hasattr(self.model, "finalize"):
             self.model.finalize()
+        self.scheduler.finalize()
+        self.checkpoint.finalize()
+        if self.profiling is not None:
+            self.profiling.finalize()
+        if self.nvrx_straggler is not None:
+            self.nvrx_straggler.finalize()
 
         # Re-run post-inits of sub-configs
         for f in fields(self):
             sub_cfg = getattr(self, f.name)
-            if hasattr(sub_cfg, "__post_init__"):
+            if hasattr(sub_cfg, "__post_init__") and not hasattr(sub_cfg, "finalize"):
                 sub_cfg.__post_init__()
 
         # Distributed - ensure data_parallel_size is calculated (might already be set by set_data_parallel_size)
@@ -1014,7 +1019,7 @@ def runtime_config_update(cfg: ConfigContainer) -> None:
     2. Apply mixed precision settings to model, optimizer, and DDP configs
     3. Calculate data parallel size (needed for comm overlap)
     4. Apply communication overlap configuration
-    5. Validate configuration after all modifications (with finalization)
+    5. Validate configuration after all modifications
 
     Args:
         cfg: Configuration container to update
@@ -1023,6 +1028,7 @@ def runtime_config_update(cfg: ConfigContainer) -> None:
     if cfg.mixed_precision is not None:
         if isinstance(cfg.mixed_precision, str):
             cfg.mixed_precision = get_mixed_precision_config(cfg.mixed_precision)
+        cfg.mixed_precision.finalize()
         cfg.mixed_precision.setup(cfg.model, cfg.optimizer, cfg.ddp)
 
     # Calculate data parallel size (needed for comm overlap methods)
@@ -1030,7 +1036,8 @@ def runtime_config_update(cfg: ConfigContainer) -> None:
 
     # Apply communication overlap configuration if provided
     if cfg.comm_overlap is not None:
+        cfg.comm_overlap.finalize()
         cfg.comm_overlap.setup(cfg.model, cfg.optimizer, cfg.ddp)
 
-    # Validate configuration after all modifications (with finalization)
+    # Validate configuration after all modifications
     cfg.validate()

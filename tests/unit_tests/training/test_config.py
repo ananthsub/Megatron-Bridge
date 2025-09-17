@@ -639,26 +639,24 @@ class TestConfigContainerValidation:
     def test_profiling_config_instantiation_validation(
         self, monkeypatch, use_pytorch_profiler, use_nsys_profiler, expect_assertion_error
     ):
-        """Test ProfilingConfig __post_init__ validation for profiler exclusivity."""
+        """Test ProfilingConfig finalize validation for profiler exclusivity."""
 
-        if expect_assertion_error:
-            with pytest.raises(AssertionError, match="Exactly one of pytorch or nsys profiler should be enabled"):
-                prof_cfg = create_test_profiling_config(
-                    use_pytorch_profiler=use_pytorch_profiler, use_nsys_profiler=use_nsys_profiler
-                )
-        else:
-            # No error expected at instantiation
-            prof_cfg = create_test_profiling_config(
-                use_pytorch_profiler=use_pytorch_profiler, use_nsys_profiler=use_nsys_profiler
-            )
-            gpt_model_cfg = create_test_gpt_config()
-            container, og_ws, cfg_mod = create_test_config_container(
-                world_size_override=1, model_config=gpt_model_cfg, profiling_config=prof_cfg
-            )
-            try:
-                container.validate()
-            finally:
-                restore_get_world_size_safe(og_ws, cfg_mod)
+        prof_cfg = create_test_profiling_config(
+            use_pytorch_profiler=use_pytorch_profiler, use_nsys_profiler=use_nsys_profiler
+        )
+        gpt_model_cfg = create_test_gpt_config()
+        container, og_ws, cfg_mod = create_test_config_container(
+            world_size_override=1, model_config=gpt_model_cfg, profiling_config=prof_cfg
+        )
+
+        try:
+            if expect_assertion_error:
+                with pytest.raises(AssertionError, match="Exactly one of pytorch or nsys profiler should be enabled"):
+                    container.validate()  # Validation error should occur here during finalize
+            else:
+                container.validate()  # Should pass without error
+        finally:
+            restore_get_world_size_safe(og_ws, cfg_mod)
 
     def test_packed_sequence_micro_batch_size_validation_error(self, monkeypatch):
         """Test validation error when micro_batch_size > 1 with packed sequences."""
@@ -928,51 +926,46 @@ class TestConfigContainerValidation:
 
 class TestRerunConfigValidation:
     """
-    Test that post-init/finalize functions behave correctly when called multiple times:
-    - For configs inheriting from Megatron Core: finalize() may change computed fields on first call, but subsequent calls are idempotent
-    - For pure Megatron-Bridge configs: __post_init__() should not change state and be idempotent
+    Test that finalize() functions behave correctly when called multiple times:
+    - All configs now use finalize() method for validation and computed field calculation to handle deferred overrides.
+    - finalize() may change computed fields on first call, but subsequent calls are idempotent
     - Tests the same behavior for ConfigContainer.validate().
     """
 
-    def _check_post_init_idempotency(self, cfg_init_fn):
+    def _check_finalize_idempotency(self, cfg_init_fn):
         import copy
 
         cfg = cfg_init_fn()
         cfg_copy = copy.deepcopy(cfg)
         assert cfg == cfg_copy
 
-        # Configs inheriting from Megatron Core have deferred post-init with finalize()
-        if isinstance(cfg, (DistributedDataParallelConfig, OptimizerConfig, GPTDatasetConfig)):
-            cfg.finalize()
-            # For MCore configs, take a new snapshot after first finalization
-            cfg_after_finalize = copy.deepcopy(cfg)
-            # Second finalize() should be idempotent (no further changes)
-            cfg.finalize()
-            assert cfg == cfg_after_finalize
-        else:
-            # Other configs call __post_init__() which should not change state
-            cfg.__post_init__()
-            assert cfg == cfg_copy
+        # All configs now use finalize() method
+        cfg.finalize()
+        # For configs that may change computed fields, take a new snapshot after first finalization
+        cfg_after_finalize = copy.deepcopy(cfg)
+        # Second finalize() should be idempotent (no further changes)
+        cfg.finalize()
+        assert cfg == cfg_after_finalize
 
     def test_scheduler_config(self):
-        self._check_post_init_idempotency(create_test_scheduler_config)
+        self._check_finalize_idempotency(create_test_scheduler_config)
 
-        # Test rerun of post-init with valid and invalid changes
+        # Test rerun of finalize with valid and invalid changes
         cfg = create_test_scheduler_config(lr_decay_iters=10)
         cfg.lr_decay_iters = 20
-        cfg.__post_init__()
+        cfg.finalize()
 
         with pytest.raises(AssertionError, match="start_weight_decay"):
             cfg.start_weight_decay = -5.2
-            cfg.__post_init__()
+            cfg.finalize()
 
     def test_gptdataset_config(self):
         def gpt_dataset_seqlen_1024():
             return create_test_gpt_dataset_config(1024)
 
-        self._check_post_init_idempotency(gpt_dataset_seqlen_1024)
+        self._check_finalize_idempotency(gpt_dataset_seqlen_1024)
 
-        # Test rerun of post-init with valid and invalid changes
+        # Test rerun of finalize with valid and invalid changes
         cfg = gpt_dataset_seqlen_1024()
         cfg.random_seed = 2468
         cfg.finalize()
@@ -982,53 +975,53 @@ class TestRerunConfigValidation:
             cfg.finalize()
 
     def test_profiling_config(self):
-        self._check_post_init_idempotency(create_test_profiling_config)
+        self._check_finalize_idempotency(create_test_profiling_config)
 
-        # Test rerun of post-init with valid and invalid changes
+        # Test rerun of finalize with valid and invalid changes
         cfg = create_test_profiling_config()
         cfg.profile_step_end = 1000
-        cfg.__post_init__()
+        cfg.finalize()
 
         with pytest.raises(AssertionError, match="one of pytorch or nsys profiler should be enabled"):
             cfg.use_nsys_profiler = True
             cfg.use_pytorch_profiler = True
-            cfg.__post_init__()
+            cfg.finalize()
 
     def test_nvrx_straggler_config(self):
-        self._check_post_init_idempotency(create_test_nvrx_straggler_config)
+        self._check_finalize_idempotency(create_test_nvrx_straggler_config)
 
-        # Test rerun of post-init with valid and invalid changes
+        # Test rerun of finalize with valid and invalid changes
         cfg = create_test_nvrx_straggler_config(enabled=True)
         cfg.num_gpu_perf_scores_to_print = 2
-        cfg.__post_init__()
+        cfg.finalize()
 
         with pytest.raises(ValueError, match="report_time_interval must be positive"):
             cfg.report_time_interval = -100.0
-            cfg.__post_init__()
+            cfg.finalize()
 
     def test_checkpoint_config(self):
-        self._check_post_init_idempotency(create_test_checkpoint_config)
+        self._check_finalize_idempotency(create_test_checkpoint_config)
 
-        # Test rerun of post-init with valid and invalid changes
+        # Test rerun of finalize with valid and invalid changes
         cfg = create_test_checkpoint_config(ckpt_format="torch_dist")
         cfg.save = "/tmp/test_checkpoint_config"
-        cfg.__post_init__()
+        cfg.finalize()
 
         with pytest.raises(AssertionError, match="load_main_params_from_ckpt must be used with load_optim=False"):
             cfg.load_main_params_from_ckpt = True
             cfg.load_optim = True
-            cfg.__post_init__()
+            cfg.finalize()
 
     def test_mixed_precision_config(self):
         from megatron.bridge.training.mixed_precision import bf16_with_mxfp8_mixed
 
-        self._check_post_init_idempotency(bf16_with_mxfp8_mixed)
+        self._check_finalize_idempotency(bf16_with_mxfp8_mixed)
         cfg = bf16_with_mxfp8_mixed()
         cfg.grad_reduce_in_fp32 = False
-        cfg.__post_init__()
+        cfg.finalize()
 
     def test_comm_overlap_config(self):
-        """Test that CommOverlapConfig.__post_init__() is idempotent and preserves user configuration."""
+        """Test that CommOverlapConfig.finalize() is idempotent and preserves user configuration."""
 
         def create_comm_overlap_config():
             return CommOverlapConfig(
@@ -1037,13 +1030,13 @@ class TestRerunConfigValidation:
             )
 
         # Use the standard idempotency check
-        self._check_post_init_idempotency(create_comm_overlap_config)
+        self._check_finalize_idempotency(create_comm_overlap_config)
 
         cfg = create_comm_overlap_config()
+        cfg.finalize()
         assert cfg.user_comm_overlap_cfg.tp_comm_bootstrap_backend == "nccl"
         assert cfg.user_comm_overlap_cfg.tp_comm_overlap is True
-        cfg.__post_init__()
-        cfg.__post_init__()
+        cfg.finalize()
 
         # The user configuration should be preserved across all re-runs
         assert cfg.user_comm_overlap_cfg.tp_comm_bootstrap_backend == "nccl"
@@ -1106,32 +1099,71 @@ class TestCheckpointConfig:
         self, load_main_params_from_ckpt, load_optim, expect_assertion_error
     ):
         """Parametrized test for load_main_params_from_ckpt validation."""
-        if expect_assertion_error:
-            with pytest.raises(AssertionError, match="load_main_params_from_ckpt must be used with load_optim=False"):
-                create_test_checkpoint_config(
-                    load_main_params_from_ckpt=load_main_params_from_ckpt, load_optim=load_optim
-                )
-        else:
-            create_test_checkpoint_config(load_main_params_from_ckpt=load_main_params_from_ckpt, load_optim=load_optim)
+        ckpt_cfg = create_test_checkpoint_config(
+            load_main_params_from_ckpt=load_main_params_from_ckpt, load_optim=load_optim
+        )
+        gpt_model_cfg = create_test_gpt_config()
+        container, og_ws, cfg_mod = create_test_config_container(
+            world_size_override=1, model_config=gpt_model_cfg, checkpoint_config=ckpt_cfg
+        )
+
+        try:
+            if expect_assertion_error:
+                with pytest.raises(
+                    AssertionError, match="load_main_params_from_ckpt must be used with load_optim=False"
+                ):
+                    container.validate()  # Validation error should occur here during finalize
+            else:
+                container.validate()  # Should pass without error
+        finally:
+            restore_get_world_size_safe(og_ws, cfg_mod)
 
     def test_async_save_validation_error(self):
         """Test that async_save requires both a save path and use_persistent_ckpt_worker=True."""
+
         # Test that async_save requires a save path
-        with pytest.raises(
-            AssertionError, match="async_save is enabled, but save is not set. Set save to a valid path."
-        ):
-            create_test_checkpoint_config(async_save=True, save=None)
+        ckpt_cfg1 = create_test_checkpoint_config(async_save=True, save=None)
+        gpt_model_cfg1 = create_test_gpt_config()
+        container1, og_ws1, cfg_mod1 = create_test_config_container(
+            world_size_override=1, model_config=gpt_model_cfg1, checkpoint_config=ckpt_cfg1
+        )
+
+        try:
+            with pytest.raises(
+                AssertionError, match="async_save is enabled, but save is not set. Set save to a valid path."
+            ):
+                container1.validate()
+        finally:
+            restore_get_world_size_safe(og_ws1, cfg_mod1)
 
         # Test that async_save requires use_persistent_ckpt_worker=True
-        with pytest.raises(AssertionError, match="async_save requires use_persistent_ckpt_worker=True."):
-            create_test_checkpoint_config(
-                async_save=True, save="/tmp/test_checkpoint_config", use_persistent_ckpt_worker=False
-            )
+        ckpt_cfg2 = create_test_checkpoint_config(
+            async_save=True, save="/tmp/test_checkpoint_config", use_persistent_ckpt_worker=False
+        )
+        gpt_model_cfg2 = create_test_gpt_config()
+        container2, og_ws2, cfg_mod2 = create_test_config_container(
+            world_size_override=1, model_config=gpt_model_cfg2, checkpoint_config=ckpt_cfg2
+        )
+
+        try:
+            with pytest.raises(AssertionError, match="async_save requires use_persistent_ckpt_worker=True."):
+                container2.validate()
+        finally:
+            restore_get_world_size_safe(og_ws2, cfg_mod2)
 
         # should not raise an error when both conditions are met
-        create_test_checkpoint_config(
+        ckpt_cfg3 = create_test_checkpoint_config(
             async_save=True, save="/tmp/test_checkpoint_config", use_persistent_ckpt_worker=True
         )
+        gpt_model_cfg3 = create_test_gpt_config()
+        container3, og_ws3, cfg_mod3 = create_test_config_container(
+            world_size_override=1, model_config=gpt_model_cfg3, checkpoint_config=ckpt_cfg3
+        )
+
+        try:
+            container3.validate()  # Should pass without error
+        finally:
+            restore_get_world_size_safe(og_ws3, cfg_mod3)
 
     def test_async_save_format_validation_torch_dist(self, monkeypatch):
         """Test that async_save works with torch_dist format."""
@@ -1330,7 +1362,7 @@ class TestRuntimeConfigUpdate:
     def test_runtime_config_update_with_comm_overlap(self):
         """Test runtime_config_update with communication overlap configuration."""
         from megatron.bridge.training.comm_overlap import CommOverlapConfig
-        from megatron.bridge.training.setup import runtime_config_update
+        from megatron.bridge.training.config import runtime_config_update
 
         def patched_init_method():
             return torch.nn.init.normal_(mean=0.0, std=0.02)
@@ -1358,7 +1390,7 @@ class TestRuntimeConfigUpdate:
 
     def test_runtime_config_update_finalization(self):
         """Test that runtime_config_update properly finalizes configs."""
-        from megatron.bridge.training.setup import runtime_config_update
+        from megatron.bridge.training.config import runtime_config_update
 
         def patched_init_method():
             return torch.nn.init.normal_(mean=0.0, std=0.02)
@@ -1388,7 +1420,7 @@ class TestRuntimeConfigUpdate:
 
     def test_runtime_config_update_no_mixed_precision_or_comm_overlap(self):
         """Test runtime_config_update with no mixed precision or comm overlap."""
-        from megatron.bridge.training.setup import runtime_config_update
+        from megatron.bridge.training.config import runtime_config_update
 
         def patched_init_method():
             return torch.nn.init.normal_(mean=0.0, std=0.02)
@@ -1413,7 +1445,7 @@ class TestRuntimeConfigUpdate:
 
     def test_runtime_config_update_idempotency(self):
         """Test that runtime_config_update can be called multiple times safely."""
-        from megatron.bridge.training.setup import runtime_config_update
+        from megatron.bridge.training.config import runtime_config_update
 
         def patched_init_method():
             return torch.nn.init.normal_(mean=0.0, std=0.02)
