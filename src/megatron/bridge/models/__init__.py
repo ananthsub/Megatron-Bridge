@@ -186,6 +186,11 @@ __all__ = [
     # Nemotron Models
     "NemotronBridge",
     "NemotronModelProvider",
+    "Nemotron3ModelProvider4B",
+    "Nemotron3ModelProvider8B",
+    "Nemotron3ModelProvider22B",
+    "Nemotron4ModelProvider15B",
+    "Nemotron4ModelProvider340B",
     # VL Models
     "Qwen25VLModel",
     "Qwen25VLBridge",
