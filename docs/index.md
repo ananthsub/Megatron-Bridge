@@ -8,6 +8,7 @@
 
 bridge-guide.md
 performance-guide.md
+nemo2-migration-guide.md
 ```
 
 ```{toctree}
