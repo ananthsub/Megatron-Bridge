@@ -29,8 +29,10 @@ training/logging.md
 training/profiling.md
 training/checkpointing.md
 training/resiliency.md
-training/mixed-precision.md
-training/peft.md
+training/attention-optimizations.md
+training/activation-recomputation.md
+training/cpu-offloading.md
+training/peft-config.md
 ```
 
 ```{toctree}
