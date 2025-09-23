@@ -72,7 +72,6 @@ class NemotronModelProvider(GPTModelProvider):
 class Nemotron3ModelProvider4B(NemotronModelProvider):
     """
     Configuration class for the Nemotron3 4B model, inheriting from NemotronModelProvider.
-    Maps to: nvidia/Minitron-4B-Base, nvidia/Nemotron-Mini-4B-Instruct
     """
 
     num_layers: int = 32
@@ -89,16 +88,15 @@ class Nemotron3ModelProvider4B(NemotronModelProvider):
 class Nemotron3ModelProvider8B(NemotronModelProvider):
     """
     Configuration class for the Nemotron3 8B model, inheriting from NemotronModelProvider.
-    Maps to: nvidia/Minitron-8B-Base
     """
 
     num_layers: int = 32
     seq_length: int = 4096
     hidden_size: int = 4096
     ffn_hidden_size: int = 16384
-    num_attention_heads: int = 48  # Updated to match HF model (was 32)
-    num_query_groups: int = 8  # Updated to match HF model (was None)
-    kv_channels: Optional[int] = 128  # Updated to match HF model (was None)
+    num_attention_heads: int = 32
+    num_query_groups: Optional[int] = None
+    kv_channels: Optional[int] = None
     init_method_std: float = 0.010
 
 

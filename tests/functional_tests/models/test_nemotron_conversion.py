@@ -220,7 +220,7 @@ class TestNemotronConversion:
             "--data-file=/workspace/.coverage",
             "--source=/workspace/",
             "--parallel-mode",
-            "examples/models/multi_gpu_hf.py",
+            "examples/conversion/hf_megatron_roundtrip_multi_gpu.py",
             "--hf-model-id",
             nemotron_toy_model_path,  # Use our local toy model instead of downloading
             "--output-dir",

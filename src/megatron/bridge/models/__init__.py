@@ -74,6 +74,11 @@ from megatron.bridge.models.mamba.nemotron_h_provider import (
     NemotronNano12Bv2Provider,
 )
 from megatron.bridge.models.nemotron import (
+    Nemotron3ModelProvider4B,
+    Nemotron3ModelProvider8B,
+    Nemotron3ModelProvider22B,
+    Nemotron4ModelProvider15B,
+    Nemotron4ModelProvider340B,
     NemotronBridge,
     NemotronModelProvider,
 )
