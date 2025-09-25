@@ -30,7 +30,7 @@ HF_MODEL_ID_TO_PROVIDER = {
     "deepseek-ai/DeepSeek-V2-Lite": DeepSeekV2LiteModelProvider,
     "deepseek-ai/DeepSeek-V3": DeepSeekV3ModelProvider,
     "deepseek-ai/DeepSeek-V3-Base": DeepSeekV3ModelProvider,
-    "deepseek-ai/Moonlight-16B-A3B": MoonlightModelProvider16B,
+    "moonshotai/Moonlight-16B-A3B": MoonlightModelProvider16B,
 }
 
 
