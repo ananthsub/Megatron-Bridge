@@ -32,7 +32,7 @@ training/resiliency.md
 training/attention-optimizations.md
 training/activation-recomputation.md
 training/cpu-offloading.md
-training/peft-config.md
+training/peft.md
 ```
 
 ```{toctree}
