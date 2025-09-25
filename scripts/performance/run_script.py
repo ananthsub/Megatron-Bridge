@@ -140,6 +140,7 @@ def main():
     pretrain(config=recipe, forward_step_func=forward_step)
 
     if torch.distributed.is_initialized():
+        torch.distributed.barrier()
         torch.distributed.destroy_process_group()
 
 
