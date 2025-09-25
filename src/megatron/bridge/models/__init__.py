@@ -30,6 +30,7 @@ from megatron.bridge.models.deepseek import (
     DeepSeekV2Provider,
     DeepSeekV3Provider,
     MoonlightProvider,
+)
 from megatron.bridge.models.gemma import (
     CodeGemmaModelProvider2B,
     CodeGemmaModelProvider7B,
