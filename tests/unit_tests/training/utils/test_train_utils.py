@@ -503,6 +503,365 @@ class TestTrainingLog:
     @mock.patch("megatron.bridge.training.utils.train_utils.get_world_size_safe")
     @mock.patch("megatron.bridge.training.utils.train_utils.is_last_rank")
     @mock.patch("megatron.bridge.training.utils.train_utils.print_rank_last")
+    @mock.patch("megatron.bridge.training.utils.train_utils.track_moe_metrics")
+    @mock.patch("megatron.bridge.training.utils.train_utils.report_runtime")
+    @mock.patch("megatron.bridge.training.utils.train_utils.report_throughput")
+    @mock.patch("megatron.bridge.training.utils.train_utils.report_l2_norm_grad")
+    def test_moe_logging_seq_aux_loss(
+        self,
+        mock_report_l2_norm_grad,
+        mock_report_throughput,
+        mock_report_runtime,
+        mock_track_moe,
+        mock_print_rank_last,
+        mock_is_last_rank,
+        mock_get_world_size,
+        mock_reduce_lr,
+        mock_get_microbatches,
+        mock_config,
+        mock_global_state,
+        loss_dict,
+    ):
+        """Test MoE logging with seq_aux_loss router load balancing type."""
+        total_loss_dict = self.get_fresh_total_loss_dict()
+
+        # Setup mocks
+        mock_report_l2_norm_grad.return_value = {}
+        mock_report_throughput.return_value = {}
+        mock_report_runtime.return_value = {}
+        mock_get_microbatches.return_value = 8
+        mock_reduce_lr.return_value = 1e-4
+        mock_get_world_size.return_value = 32
+        mock_is_last_rank.return_value = True
+
+        # Enable MoE with seq_aux_loss
+        mock_config.model.num_moe_experts = 8
+        mock_config.model.moe_router_load_balancing_type = "seq_aux_loss"
+        mock_config.model.moe_z_loss_coeff = None
+        mock_config.model.moe_per_layer_logging = True
+        mock_config.model.num_layers = 12
+        mock_config.model.moe_layer_freq = 2
+        mock_config.model.mtp_num_layers = None
+
+        training_log(
+            loss_dict=loss_dict,
+            total_loss_dict=total_loss_dict,
+            learning_rate=1e-4,
+            decoupled_learning_rate=None,
+            loss_scale=1024.0,
+            report_memory_flag=False,
+            skipped_iter=0,
+            grad_norm=2.5,
+            params_norm=15.2,
+            num_zeros_in_grad=0,
+            config=mock_config,
+            global_state=mock_global_state,
+            history_wct=None,
+            model=None,
+        )
+
+        # Verify correct track names
+        # Note: "seq_aux_loss" contains "aux_loss" substring, so both are matched
+        mock_track_moe.assert_called_once()
+        call_args = mock_track_moe.call_args
+        track_names = call_args.kwargs["track_names"]
+        assert "seq_load_balancing_loss" in track_names
+        assert "load_balancing_loss" in track_names  # Also matched because "aux_loss" in "seq_aux_loss"
+        assert "z_loss" not in track_names
+        assert len(track_names) == 2
+
+    @mock.patch("megatron.bridge.training.utils.train_utils.get_num_microbatches")
+    @mock.patch("megatron.bridge.training.utils.train_utils.reduce_max_stat_across_model_parallel_group")
+    @mock.patch("megatron.bridge.training.utils.train_utils.get_world_size_safe")
+    @mock.patch("megatron.bridge.training.utils.train_utils.is_last_rank")
+    @mock.patch("megatron.bridge.training.utils.train_utils.print_rank_last")
+    @mock.patch("megatron.bridge.training.utils.train_utils.track_moe_metrics")
+    @mock.patch("megatron.bridge.training.utils.train_utils.report_runtime")
+    @mock.patch("megatron.bridge.training.utils.train_utils.report_throughput")
+    @mock.patch("megatron.bridge.training.utils.train_utils.report_l2_norm_grad")
+    def test_moe_logging_global_aux_loss(
+        self,
+        mock_report_l2_norm_grad,
+        mock_report_throughput,
+        mock_report_runtime,
+        mock_track_moe,
+        mock_print_rank_last,
+        mock_is_last_rank,
+        mock_get_world_size,
+        mock_reduce_lr,
+        mock_get_microbatches,
+        mock_config,
+        mock_global_state,
+        loss_dict,
+    ):
+        """Test MoE logging with global_aux_loss router load balancing type."""
+        total_loss_dict = self.get_fresh_total_loss_dict()
+
+        # Setup mocks
+        mock_report_l2_norm_grad.return_value = {}
+        mock_report_throughput.return_value = {}
+        mock_report_runtime.return_value = {}
+        mock_get_microbatches.return_value = 8
+        mock_reduce_lr.return_value = 1e-4
+        mock_get_world_size.return_value = 32
+        mock_is_last_rank.return_value = True
+
+        # Enable MoE with global_aux_loss
+        mock_config.model.num_moe_experts = 8
+        mock_config.model.moe_router_load_balancing_type = "global_aux_loss"
+        mock_config.model.moe_z_loss_coeff = None
+        mock_config.model.moe_per_layer_logging = True
+        mock_config.model.num_layers = 12
+        mock_config.model.moe_layer_freq = 2
+        mock_config.model.mtp_num_layers = None
+
+        training_log(
+            loss_dict=loss_dict,
+            total_loss_dict=total_loss_dict,
+            learning_rate=1e-4,
+            decoupled_learning_rate=None,
+            loss_scale=1024.0,
+            report_memory_flag=False,
+            skipped_iter=0,
+            grad_norm=2.5,
+            params_norm=15.2,
+            num_zeros_in_grad=0,
+            config=mock_config,
+            global_state=mock_global_state,
+            history_wct=None,
+            model=None,
+        )
+
+        # Verify correct track names
+        # Note: "global_aux_loss" contains "aux_loss" substring, so both are matched
+        mock_track_moe.assert_called_once()
+        call_args = mock_track_moe.call_args
+        track_names = call_args.kwargs["track_names"]
+        assert "global_load_balancing_loss" in track_names
+        assert "load_balancing_loss" in track_names  # Also matched because "aux_loss" in "global_aux_loss"
+        assert "z_loss" not in track_names
+        assert len(track_names) == 2
+
+    @mock.patch("megatron.bridge.training.utils.train_utils.get_num_microbatches")
+    @mock.patch("megatron.bridge.training.utils.train_utils.reduce_max_stat_across_model_parallel_group")
+    @mock.patch("megatron.bridge.training.utils.train_utils.get_world_size_safe")
+    @mock.patch("megatron.bridge.training.utils.train_utils.is_last_rank")
+    @mock.patch("megatron.bridge.training.utils.train_utils.print_rank_last")
+    @mock.patch("megatron.bridge.training.utils.train_utils.track_moe_metrics")
+    @mock.patch("megatron.bridge.training.utils.train_utils.report_runtime")
+    @mock.patch("megatron.bridge.training.utils.train_utils.report_throughput")
+    @mock.patch("megatron.bridge.training.utils.train_utils.report_l2_norm_grad")
+    def test_moe_logging_combined_aux_losses(
+        self,
+        mock_report_l2_norm_grad,
+        mock_report_throughput,
+        mock_report_runtime,
+        mock_track_moe,
+        mock_print_rank_last,
+        mock_is_last_rank,
+        mock_get_world_size,
+        mock_reduce_lr,
+        mock_get_microbatches,
+        mock_config,
+        mock_global_state,
+        loss_dict,
+    ):
+        """Test MoE logging with multiple aux loss types combined."""
+        total_loss_dict = self.get_fresh_total_loss_dict()
+
+        # Setup mocks
+        mock_report_l2_norm_grad.return_value = {}
+        mock_report_throughput.return_value = {}
+        mock_report_runtime.return_value = {}
+        mock_get_microbatches.return_value = 8
+        mock_reduce_lr.return_value = 1e-4
+        mock_get_world_size.return_value = 32
+        mock_is_last_rank.return_value = True
+
+        # Enable MoE with combined aux losses (string contains multiple types)
+        mock_config.model.num_moe_experts = 8
+        mock_config.model.moe_router_load_balancing_type = "aux_loss,seq_aux_loss,global_aux_loss"
+        mock_config.model.moe_z_loss_coeff = 0.1
+        mock_config.model.moe_per_layer_logging = True
+        mock_config.model.num_layers = 12
+        mock_config.model.moe_layer_freq = 2
+        mock_config.model.mtp_num_layers = None
+
+        training_log(
+            loss_dict=loss_dict,
+            total_loss_dict=total_loss_dict,
+            learning_rate=1e-4,
+            decoupled_learning_rate=None,
+            loss_scale=1024.0,
+            report_memory_flag=False,
+            skipped_iter=0,
+            grad_norm=2.5,
+            params_norm=15.2,
+            num_zeros_in_grad=0,
+            config=mock_config,
+            global_state=mock_global_state,
+            history_wct=None,
+            model=None,
+        )
+
+        # Verify all track names are present
+        mock_track_moe.assert_called_once()
+        call_args = mock_track_moe.call_args
+        track_names = call_args.kwargs["track_names"]
+        assert "load_balancing_loss" in track_names
+        assert "seq_load_balancing_loss" in track_names
+        assert "global_load_balancing_loss" in track_names
+        assert "z_loss" in track_names
+        # Should have all 4 types
+        assert len(track_names) == 4
+
+    @mock.patch("megatron.bridge.training.utils.train_utils.get_num_microbatches")
+    @mock.patch("megatron.bridge.training.utils.train_utils.reduce_max_stat_across_model_parallel_group")
+    @mock.patch("megatron.bridge.training.utils.train_utils.get_world_size_safe")
+    @mock.patch("megatron.bridge.training.utils.train_utils.is_last_rank")
+    @mock.patch("megatron.bridge.training.utils.train_utils.print_rank_last")
+    @mock.patch("megatron.bridge.training.utils.train_utils.track_moe_metrics")
+    @mock.patch("megatron.bridge.training.utils.train_utils.report_runtime")
+    @mock.patch("megatron.bridge.training.utils.train_utils.report_throughput")
+    @mock.patch("megatron.bridge.training.utils.train_utils.report_l2_norm_grad")
+    def test_moe_logging_with_z_loss_only(
+        self,
+        mock_report_l2_norm_grad,
+        mock_report_throughput,
+        mock_report_runtime,
+        mock_track_moe,
+        mock_print_rank_last,
+        mock_is_last_rank,
+        mock_get_world_size,
+        mock_reduce_lr,
+        mock_get_microbatches,
+        mock_config,
+        mock_global_state,
+        loss_dict,
+    ):
+        """Test MoE logging with only z_loss enabled (no aux loss types)."""
+        total_loss_dict = self.get_fresh_total_loss_dict()
+
+        # Setup mocks
+        mock_report_l2_norm_grad.return_value = {}
+        mock_report_throughput.return_value = {}
+        mock_report_runtime.return_value = {}
+        mock_get_microbatches.return_value = 8
+        mock_reduce_lr.return_value = 1e-4
+        mock_get_world_size.return_value = 32
+        mock_is_last_rank.return_value = True
+
+        # Enable MoE with only z_loss
+        mock_config.model.num_moe_experts = 8
+        mock_config.model.moe_router_load_balancing_type = "none"  # No aux loss
+        mock_config.model.moe_z_loss_coeff = 0.1
+        mock_config.model.moe_per_layer_logging = True
+        mock_config.model.num_layers = 12
+        mock_config.model.moe_layer_freq = 2
+        mock_config.model.mtp_num_layers = None
+
+        training_log(
+            loss_dict=loss_dict,
+            total_loss_dict=total_loss_dict,
+            learning_rate=1e-4,
+            decoupled_learning_rate=None,
+            loss_scale=1024.0,
+            report_memory_flag=False,
+            skipped_iter=0,
+            grad_norm=2.5,
+            params_norm=15.2,
+            num_zeros_in_grad=0,
+            config=mock_config,
+            global_state=mock_global_state,
+            history_wct=None,
+            model=None,
+        )
+
+        # Verify only z_loss is tracked
+        mock_track_moe.assert_called_once()
+        call_args = mock_track_moe.call_args
+        track_names = call_args.kwargs["track_names"]
+        assert "z_loss" in track_names
+        assert "load_balancing_loss" not in track_names
+        assert "seq_load_balancing_loss" not in track_names
+        assert "global_load_balancing_loss" not in track_names
+        assert len(track_names) == 1
+
+    @mock.patch("megatron.bridge.training.utils.train_utils.get_num_microbatches")
+    @mock.patch("megatron.bridge.training.utils.train_utils.reduce_max_stat_across_model_parallel_group")
+    @mock.patch("megatron.bridge.training.utils.train_utils.get_world_size_safe")
+    @mock.patch("megatron.bridge.training.utils.train_utils.is_last_rank")
+    @mock.patch("megatron.bridge.training.utils.train_utils.print_rank_last")
+    @mock.patch("megatron.bridge.training.utils.train_utils.track_moe_metrics")
+    @mock.patch("megatron.bridge.training.utils.train_utils.report_runtime")
+    @mock.patch("megatron.bridge.training.utils.train_utils.report_throughput")
+    @mock.patch("megatron.bridge.training.utils.train_utils.report_l2_norm_grad")
+    def test_moe_logging_without_z_loss(
+        self,
+        mock_report_l2_norm_grad,
+        mock_report_throughput,
+        mock_report_runtime,
+        mock_track_moe,
+        mock_print_rank_last,
+        mock_is_last_rank,
+        mock_get_world_size,
+        mock_reduce_lr,
+        mock_get_microbatches,
+        mock_config,
+        mock_global_state,
+        loss_dict,
+    ):
+        """Test MoE logging with aux_loss but without z_loss."""
+        total_loss_dict = self.get_fresh_total_loss_dict()
+
+        # Setup mocks
+        mock_report_l2_norm_grad.return_value = {}
+        mock_report_throughput.return_value = {}
+        mock_report_runtime.return_value = {}
+        mock_get_microbatches.return_value = 8
+        mock_reduce_lr.return_value = 1e-4
+        mock_get_world_size.return_value = 32
+        mock_is_last_rank.return_value = True
+
+        # Enable MoE with aux_loss but no z_loss
+        mock_config.model.num_moe_experts = 8
+        mock_config.model.moe_router_load_balancing_type = "aux_loss"
+        mock_config.model.moe_z_loss_coeff = None  # No z_loss
+        mock_config.model.moe_per_layer_logging = True
+        mock_config.model.num_layers = 12
+        mock_config.model.moe_layer_freq = 2
+        mock_config.model.mtp_num_layers = None
+
+        training_log(
+            loss_dict=loss_dict,
+            total_loss_dict=total_loss_dict,
+            learning_rate=1e-4,
+            decoupled_learning_rate=None,
+            loss_scale=1024.0,
+            report_memory_flag=False,
+            skipped_iter=0,
+            grad_norm=2.5,
+            params_norm=15.2,
+            num_zeros_in_grad=0,
+            config=mock_config,
+            global_state=mock_global_state,
+            history_wct=None,
+            model=None,
+        )
+
+        # Verify only load_balancing_loss is tracked
+        mock_track_moe.assert_called_once()
+        call_args = mock_track_moe.call_args
+        track_names = call_args.kwargs["track_names"]
+        assert "load_balancing_loss" in track_names
+        assert "z_loss" not in track_names
+        assert len(track_names) == 1
+
+    @mock.patch("megatron.bridge.training.utils.train_utils.get_num_microbatches")
+    @mock.patch("megatron.bridge.training.utils.train_utils.reduce_max_stat_across_model_parallel_group")
+    @mock.patch("megatron.bridge.training.utils.train_utils.get_world_size_safe")
+    @mock.patch("megatron.bridge.training.utils.train_utils.is_last_rank")
+    @mock.patch("megatron.bridge.training.utils.train_utils.print_rank_last")
     @mock.patch("megatron.bridge.training.utils.train_utils.MTPLossLoggingHelper")
     @mock.patch("megatron.bridge.training.utils.train_utils.report_runtime")
     @mock.patch("megatron.bridge.training.utils.train_utils.report_throughput")
