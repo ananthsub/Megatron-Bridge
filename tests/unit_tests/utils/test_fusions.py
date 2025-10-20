@@ -82,92 +82,86 @@ class TestValidateRopeFusionCompatibility:
         """Test RoPE fusion incompatibility with multi_latent_attention."""
         mock_config = MagicMock()
         mock_config.apply_rope_fusion = True
+        mock_config.position_embedding_type = "rope"  # Need RoPE embeddings for the test
 
         # Set attributes directly on the mock config
         mock_config.multi_latent_attention = True
-        mock_config.rotary_interleaved = False
 
         with patch("megatron.bridge.utils.fusions.LOG_FUSION_DISABLE", True), caplog.at_level(logging.WARNING):
             result = validate_rope_fusion_compatibility(mock_config)
 
         assert result is True
 
-    def test_rope_fusion_with_rotary_interleaved_success(self):
-        """Test RoPE fusion with rotary_interleaved when TE version is sufficient."""
+    def test_rope_fusion_with_rope_position_embeddings(self):
+        """Test RoPE fusion with RoPE position embeddings."""
         mock_config = MagicMock()
         mock_config.apply_rope_fusion = True
-
-        # Set attributes directly on the mock config
+        mock_config.position_embedding_type = "rope"
         mock_config.multi_latent_attention = False
-        mock_config.rotary_interleaved = True
-
-        with (
-            patch("megatron.core.utils.is_te_min_version", return_value=True),
-            patch("megatron.core.utils.get_te_version", return_value="2.2.0"),
-        ):
-            result = validate_rope_fusion_compatibility(mock_config)
-            assert result is True
-
-    def test_rope_fusion_with_rotary_interleaved_old_te_version(self, caplog):
-        """Test RoPE fusion with rotary_interleaved when TE version is too old."""
-        mock_config = MagicMock()
-        mock_config.apply_rope_fusion = True
-
-        # Set attributes directly on the mock config
-        mock_config.multi_latent_attention = False
-        mock_config.rotary_interleaved = True
-
-        with (
-            patch("megatron.core.utils.is_te_min_version", return_value=False),
-            patch("megatron.core.utils.get_te_version", return_value="1.0.0"),
-            patch("megatron.bridge.utils.fusions.LOG_FUSION_DISABLE", True),
-        ):
-            with caplog.at_level(logging.WARNING):
-                result = validate_rope_fusion_compatibility(mock_config)
-
-            assert result is False
-            assert "apply_rope_fusion with rotary_interleaved requires TE >= 2.2.0.dev0" in caplog.text
-
-    def test_rope_fusion_with_rotary_interleaved_no_te(self, caplog):
-        """Test RoPE fusion with rotary_interleaved when TE is not available."""
-        mock_config = MagicMock()
-        mock_config.apply_rope_fusion = True
-        original_import = __import__
-
-        # Set attributes directly on the mock config
-        mock_config.multi_latent_attention = False
-        mock_config.rotary_interleaved = True
-
-        with (
-            patch("builtins.__import__") as mock_import,
-            patch("megatron.bridge.utils.fusions.LOG_FUSION_DISABLE", True),
-        ):
-
-            def import_side_effect(name, *args, **kwargs):
-                if name == "megatron.core.utils":
-                    raise ImportError("No module named 'megatron.core.utils'")
-                else:
-                    return original_import(name, *args, **kwargs)
-
-            mock_import.side_effect = import_side_effect
-
-            with caplog.at_level(logging.WARNING):
-                result = validate_rope_fusion_compatibility(mock_config)
-
-            assert result is False
-            assert "apply_rope_fusion with rotary_interleaved requires Transformer Engine" in caplog.text
-
-    def test_rope_fusion_basic_compatibility(self):
-        """Test basic RoPE fusion compatibility without additional features."""
-        mock_config = MagicMock()
-        mock_config.apply_rope_fusion = True
-
-        # Set attributes directly on the mock config
-        mock_config.multi_latent_attention = False
-        mock_config.rotary_interleaved = False
 
         result = validate_rope_fusion_compatibility(mock_config)
         assert result is True
+
+    def test_rope_fusion_with_non_rope_position_embeddings(self, caplog):
+        """Test RoPE fusion with non-RoPE position embeddings."""
+        mock_config = MagicMock()
+        mock_config.apply_rope_fusion = True
+        mock_config.position_embedding_type = "learned_absolute"
+        mock_config.multi_latent_attention = False
+
+        with (
+            patch("megatron.bridge.utils.fusions.LOG_FUSION_DISABLE", True),
+            caplog.at_level(logging.WARNING),
+        ):
+            result = validate_rope_fusion_compatibility(mock_config)
+
+        assert result is False
+        assert "apply_rope_fusion is only compatible with RoPE position embeddings" in caplog.text
+        assert "Current position_embedding_type: learned_absolute" in caplog.text
+
+    def test_rope_fusion_with_default_position_embeddings(self, caplog):
+        """Test RoPE fusion when position_embedding_type is not set (defaults to learned_absolute)."""
+        mock_config = MagicMock()
+        mock_config.apply_rope_fusion = True
+        mock_config.multi_latent_attention = False
+        # Don't set position_embedding_type to test the default
+        del mock_config.position_embedding_type
+
+        with (
+            patch("megatron.bridge.utils.fusions.LOG_FUSION_DISABLE", True),
+            caplog.at_level(logging.WARNING),
+        ):
+            result = validate_rope_fusion_compatibility(mock_config)
+
+        assert result is False
+        assert "apply_rope_fusion is only compatible with RoPE position embeddings" in caplog.text
+        assert "Current position_embedding_type: learned_absolute" in caplog.text
+
+    def test_rope_fusion_basic_compatibility(self):
+        """Test basic RoPE fusion compatibility with RoPE position embeddings."""
+        mock_config = MagicMock()
+        mock_config.apply_rope_fusion = True
+        mock_config.position_embedding_type = "rope"
+        mock_config.multi_latent_attention = False
+
+        result = validate_rope_fusion_compatibility(mock_config)
+        assert result is True
+
+    def test_rope_fusion_warnings_suppressed(self, caplog):
+        """Test that warnings are suppressed when LOG_FUSION_DISABLE is False."""
+        mock_config = MagicMock()
+        mock_config.apply_rope_fusion = True
+        mock_config.position_embedding_type = "learned_absolute"
+        mock_config.multi_latent_attention = False
+
+        with (
+            patch("megatron.bridge.utils.fusions.LOG_FUSION_DISABLE", False),
+            caplog.at_level(logging.WARNING),
+        ):
+            result = validate_rope_fusion_compatibility(mock_config)
+
+        assert result is False
+        assert len(caplog.records) == 0  # No warnings should be logged
 
 
 class TestEnvironmentVariableHandling:

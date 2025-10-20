@@ -54,13 +54,24 @@ def validate_rope_fusion_compatibility(config: TransformerConfig) -> bool:
     """Validate if RoPE fusion is compatible with the current model configuration.
 
     Args:
-        model_provider: The GPTModelProvider instance to validate.
+        config: The TransformerConfig instance to validate.
 
     Returns:
         bool: True if RoPE fusion is compatible, False otherwise.
     """
     if not config.apply_rope_fusion:
         return True
+
+    # Check if position embedding type is RoPE (similar to arguments.py logic)
+    position_embedding_type = getattr(config, "position_embedding_type", "learned_absolute")
+    if position_embedding_type != "rope":
+        if LOG_FUSION_DISABLE:
+            logger.warning(
+                f"apply_rope_fusion is only compatible with RoPE position embeddings. "
+                f"Current position_embedding_type: {position_embedding_type}. "
+                f"Consider disabling apply_rope_fusion."
+            )
+        return False
 
     # Check for multi_latent_attention incompatibility
     if getattr(config, "multi_latent_attention", False):
@@ -70,25 +81,5 @@ def validate_rope_fusion_compatibility(config: TransformerConfig) -> bool:
                 "It is experimental and may change in future versions."
             )
         return True
-
-    # Check TE version for rotary_interleaved
-    if getattr(config, "rotary_interleaved", False):
-        try:
-            from megatron.core.utils import get_te_version, is_te_min_version
-
-            if not is_te_min_version("2.2.0.dev0"):
-                if LOG_FUSION_DISABLE:
-                    logger.warning(
-                        "apply_rope_fusion with rotary_interleaved requires TE >= 2.2.0.dev0. "
-                        f"Current TE version: {get_te_version()}. Consider disabling apply_rope_fusion."
-                    )
-                return False
-        except ImportError:
-            if LOG_FUSION_DISABLE:
-                logger.warning(
-                    "apply_rope_fusion with rotary_interleaved requires Transformer Engine. "
-                    "Consider disabling apply_rope_fusion."
-                )
-            return False
 
     return True
