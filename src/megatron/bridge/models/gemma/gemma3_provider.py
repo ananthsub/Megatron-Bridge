@@ -40,7 +40,6 @@ from megatron.core.transformer.mlp import MLP, MLPSubmodules
 from torch import Tensor
 
 from megatron.bridge.models.gpt_provider import GPTModelProvider
-from megatron.bridge.utils import fusions
 from megatron.bridge.utils.import_utils import safe_import_from
 
 
@@ -91,8 +90,8 @@ class Gemma3ModelProvider(GPTModelProvider):
         default_factory=lambda: gemma3_layer_spec
     )
     scatter_embedding_sequence_parallel: bool = True
-    apply_rope_fusion: bool = field(default_factory=fusions.can_enable_apply_rope_fusion)
-    masked_softmax_fusion: bool = field(default_factory=fusions.can_enable_masked_softmax_fusion)
+    apply_rope_fusion: bool = True
+    masked_softmax_fusion: bool = True
 
     # Data type settings to match HF models
     bf16: bool = True
