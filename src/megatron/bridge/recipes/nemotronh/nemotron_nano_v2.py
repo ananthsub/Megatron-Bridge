@@ -21,7 +21,9 @@ from megatron.bridge.models.nemotronh import (
     NemotronNano9Bv2Provider,
     NemotronNano12Bv2Provider,
 )
+from megatron.bridge.peft.base import PEFT
 from megatron.bridge.recipes.utils.dataset_utils import get_blend_fields_from_data_paths
+from megatron.bridge.recipes.utils.finetune_utils import default_squad_config
 from megatron.bridge.recipes.utils.optimizer_utils import distributed_fused_adam_with_cosine_annealing
 from megatron.bridge.recipes.utils.tokenizer_utils import DEFAULT_NULL_TOKENIZER_VOCAB_SIZE
 from megatron.bridge.training.comm_overlap import CommOverlapConfig
@@ -76,6 +78,23 @@ class NemotronNanoV2CommonKwargs(TypedDict, total=False):
     comm_overlap_config: CommOverlapConfig | None
     # CommOverlap setting
     enable_default_comm_overlap: bool
+
+
+class NemotronNanoV2FinetuneKwargs(NemotronNanoV2CommonKwargs, total=False):
+    """Typed options accepted by Nemotron Nano v2 finetuning recipe helper functions."""
+
+    # Core finetuning options
+    pretrained_checkpoint: str | None
+    peft: str | PEFT | None
+    packed_sequence: bool
+    # Training params
+    finetune_lr: float
+    eval_interval: int
+    save_interval: int
+    # W&B logging
+    wandb_project: str | None
+    wandb_entity: str | None
+    wandb_exp_name: str | None
 
 
 def nemotron_nano_9b_v2_pretrain_config(**user_kwargs: Unpack[NemotronNanoV2CommonKwargs]) -> ConfigContainer:
@@ -274,6 +293,238 @@ def _nemotron_nano_v2_common(
             dist_ckpt_strictness="log_all",
         ),
         rng=RNGConfig(seed=1234),
+        comm_overlap=comm_overlap_config,
+        mixed_precision=precision_config,
+    )
+
+    if cfg.comm_overlap is None and enable_default_comm_overlap:
+        cfg.comm_overlap = CommOverlapConfig(
+            tp_comm_bootstrap_backend="nccl",
+            tp_comm_overlap=True,
+        )
+
+    return cfg
+
+
+def nemotron_nano_9b_v2_finetune_config(**user_kwargs: Unpack[NemotronNanoV2FinetuneKwargs]) -> ConfigContainer:
+    """Return a finetuning config for Nemotron Nano 9B v2.
+
+    Default configuration: 8 nodes, 64 GPUs (8 GPUs per node)
+    - Full SFT: TP=2, PP=1, SP=True
+    - GBS=768, MBS=1, seq_length=8192
+    - max_steps=10 (test configuration)
+
+    See `_nemotron_nano_v2_finetune_common` for the full list of parameters.
+    """
+    recommended_kwargs: NemotronNanoV2FinetuneKwargs = {
+        "model_provider": NemotronNano9Bv2Provider,
+        "tensor_parallelism": 2,
+        "pipeline_parallelism": 1,
+        "sequence_parallelism": True,
+        "precision_config": "bf16_mixed",
+        "enable_default_comm_overlap": True,
+        "finetune_lr": 1e-4,
+        "train_iters": 10,
+        "global_batch_size": 768,
+        "micro_batch_size": 1,
+        "seq_length": 8192,
+        "eval_interval": 10,
+        "save_interval": 10,
+        "lr_warmup_iters": 5,  # 50% of max_steps
+    }
+    combined_kwargs: NemotronNanoV2FinetuneKwargs = {**recommended_kwargs, **user_kwargs}
+    return _nemotron_nano_v2_finetune_common(
+        tokenizer_model="nvidia/NVIDIA-Nemotron-Nano-9B-v2-Base", **combined_kwargs
+    )
+
+
+def nemotron_nano_12b_v2_finetune_config(**user_kwargs: Unpack[NemotronNanoV2FinetuneKwargs]) -> ConfigContainer:
+    """Return a finetuning config for Nemotron Nano 12B v2.
+
+    Default configuration: 8 nodes, 64 GPUs (8 GPUs per node)
+    - Full SFT: TP=4, PP=1, SP=True
+    - GBS=768, MBS=1, seq_length=8192
+    - max_steps=10 (test configuration)
+
+    Note: Uses FP8 precision by default. Communication overlap is disabled by default.
+
+    See `_nemotron_nano_v2_finetune_common` for the full list of parameters.
+    """
+    recommended_kwargs: NemotronNanoV2FinetuneKwargs = {
+        "model_provider": NemotronNano12Bv2Provider,
+        "tensor_parallelism": 4,
+        "pipeline_parallelism": 1,
+        "sequence_parallelism": True,
+        "precision_config": "nanov2_bf16_with_fp8_current_scaling_mixed",
+        "enable_default_comm_overlap": False,
+        "finetune_lr": 1e-4,
+        "train_iters": 10,
+        "global_batch_size": 768,
+        "micro_batch_size": 1,
+        "seq_length": 8192,
+        "eval_interval": 10,
+        "save_interval": 10,
+        "lr_warmup_iters": 5,  # 50% of max_steps
+    }
+    combined_kwargs: NemotronNanoV2FinetuneKwargs = {**recommended_kwargs, **user_kwargs}
+    return _nemotron_nano_v2_finetune_common(
+        tokenizer_model="nvidia/NVIDIA-Nemotron-Nano-12B-v2-Base", **combined_kwargs
+    )
+
+
+def _nemotron_nano_v2_finetune_common(
+    model_provider: type[NemotronNano9Bv2Provider] | type[NemotronNano12Bv2Provider],
+    tokenizer_model: str | None = None,
+    dir: str | None = None,
+    name: str = "default",
+    # Model configuration
+    tensor_parallelism: int = 2,
+    pipeline_parallelism: int = 1,
+    pipeline_parallelism_dtype: torch.dtype | None = torch.bfloat16,
+    virtual_pipeline_parallelism: int | None = None,
+    context_parallelism: int = 1,
+    sequence_parallelism: bool = True,
+    # Finetuning-specific params
+    pretrained_checkpoint: str | None = None,
+    peft: str | PEFT | None = None,  # Not used for Nemotron Nano v2, kept for compatibility
+    packed_sequence: bool = False,
+    # Training params
+    train_iters: int = 10,
+    global_batch_size: int = 768,
+    micro_batch_size: int = 1,
+    seq_length: int = 8192,
+    eval_interval: int = 10,
+    save_interval: int = 10,
+    # Optimizer
+    finetune_lr: float = 1e-4,
+    min_lr: float = 0.0,
+    lr_warmup_iters: int = 5,
+    lr_decay_iters: int | None = None,
+    # W&B logging
+    wandb_project: str | None = None,
+    wandb_entity: str | None = None,
+    wandb_exp_name: str | None = None,
+    # Precision / overlap configs
+    precision_config: MixedPrecisionConfig | str | None = "bf16_mixed",
+    comm_overlap_config: CommOverlapConfig | None = None,
+    enable_default_comm_overlap: bool = True,
+) -> ConfigContainer:
+    """
+    Create a finetuning configuration for Nemotron Nano v2 models.
+
+    Note: PEFT is not supported for Nemotron Nano v2. Only full SFT is available.
+
+    Args:
+        model_provider: The model provider class for the specific Nemotron Nano v2 variant.
+        tokenizer_model: HuggingFace tokenizer model name.
+        dir: Base directory for saving logs and checkpoints.
+        name: Name of the finetuning run.
+        tensor_parallelism: Degree of tensor model parallelism.
+        pipeline_parallelism: Degree of pipeline model parallelism.
+        pipeline_parallelism_dtype: Data type for pipeline parallelism.
+        virtual_pipeline_parallelism: Size of virtual pipeline parallelism.
+        context_parallelism: Degree of context parallelism to be passed to model_config.
+        sequence_parallelism: Whether to use sequence parallelism.
+        pretrained_checkpoint: Path to pretrained checkpoint directory.
+        peft: Not used for Nemotron Nano v2 (PEFT not supported).
+        packed_sequence: Whether to enable packed sequences for training efficiency.
+        train_iters: Total number of training iterations.
+        global_batch_size: Global batch size for training.
+        micro_batch_size: Micro batch size for training.
+        seq_length: Sequence length for training data.
+        eval_interval: Evaluation interval.
+        save_interval: Checkpoint save interval.
+        finetune_lr: Learning rate for finetuning.
+        min_lr: Minimum learning rate for cosine decay.
+        lr_warmup_iters: Number of warmup iterations for the learning rate.
+        lr_decay_iters: Number of iterations for learning rate decay.
+        wandb_project: Weights & Biases project name.
+        wandb_entity: Weights & Biases entity name.
+        wandb_exp_name: Weights & Biases experiment name.
+        precision_config: Precision configuration for the model.
+        comm_overlap_config: Communication overlap configuration for the model.
+        enable_default_comm_overlap: Whether to enable default comm overlap config if none is provided.
+
+    Returns:
+        ConfigContainer: Configuration for finetuning.
+    """
+    # Warn if PEFT is specified
+    if peft is not None:
+        print(f"Warning: PEFT ({peft}) is not supported for Nemotron Nano v2. Using full SFT instead.")
+
+    # Setup directories
+    base_output_dir = dir if dir is not None else os.path.join(os.getcwd(), "nemo_experiments")
+    run_output_dir = os.path.join(base_output_dir, name)
+    checkpoint_dir = os.path.join(run_output_dir, "checkpoints")
+    tensorboard_dir = os.path.join(run_output_dir, "tb_logs")
+
+    # Create model config
+    model_cfg = model_provider(
+        tensor_model_parallel_size=tensor_parallelism,
+        pipeline_model_parallel_size=pipeline_parallelism,
+        pipeline_dtype=pipeline_parallelism_dtype,
+        virtual_pipeline_model_parallel_size=virtual_pipeline_parallelism,
+        context_parallel_size=context_parallelism,
+        sequence_parallel=sequence_parallelism,
+    )
+
+    opt_cfg, scheduler_cfg = distributed_fused_adam_with_cosine_annealing(
+        lr_warmup_iters=lr_warmup_iters,
+        lr_decay_iters=lr_decay_iters,
+        max_lr=finetune_lr,
+        min_lr=min_lr,
+        adam_beta1=0.9,
+        adam_beta2=0.98,  # Match NeMo2 finetuning settings
+        adam_eps=1e-5,
+        weight_decay=0.1,
+    )
+
+    # Logger
+    logger_cfg = LoggerConfig(
+        log_interval=1,
+        tensorboard_dir=tensorboard_dir,
+        log_timers_to_tensorboard=True,
+        wandb_project=wandb_project,
+        wandb_entity=wandb_entity,
+        wandb_exp_name=wandb_exp_name,
+    )
+
+    # Always use HF tokenizer for finetuning
+    tokenizer_cfg = TokenizerConfig(
+        tokenizer_type="HuggingFaceTokenizer",
+        tokenizer_model=tokenizer_model,
+    )
+
+    cfg = ConfigContainer(
+        model=model_cfg,
+        train=TrainingConfig(
+            train_iters=train_iters,
+            eval_interval=eval_interval,
+            eval_iters=32,
+            global_batch_size=global_batch_size,
+            micro_batch_size=micro_batch_size,
+        ),
+        optimizer=opt_cfg,
+        scheduler=scheduler_cfg,
+        ddp=DistributedDataParallelConfig(
+            check_for_nan_in_grad=True,
+            grad_reduce_in_fp32=True,
+            overlap_grad_reduce=True,
+            overlap_param_gather=False,
+        ),
+        dataset=default_squad_config(seq_length, packed_sequence),
+        logger=logger_cfg,
+        tokenizer=tokenizer_cfg,
+        checkpoint=CheckpointConfig(
+            save_interval=save_interval,
+            save=checkpoint_dir,
+            load=checkpoint_dir,
+            pretrained_checkpoint=pretrained_checkpoint,
+            ckpt_format="torch_dist",
+            dist_ckpt_strictness="log_all",
+        ),
+        rng=RNGConfig(seed=5678),  # Different seed for finetuning
+        peft=None,  # PEFT not supported for Nemotron Nano v2
         comm_overlap=comm_overlap_config,
         mixed_precision=precision_config,
     )
