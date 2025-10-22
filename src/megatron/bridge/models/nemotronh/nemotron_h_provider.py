@@ -110,6 +110,7 @@ class NemotronNanoModelProvider9Bv2(NemotronHModelProvider):
     hybrid_override_pattern: str = "M-M-M-MM-M-M-M*-M-M-M*-M-M-M-M*-M-M-M-M*-M-MM-M-M-M-M-M-"
     num_layers: int = 56
     hidden_size: int = 4480
+    kv_channels: int = 128
     mamba_num_heads: int = 128
     mamba_state_dim: int = 128
     ffn_hidden_size: int = 15680
@@ -125,6 +126,7 @@ class NemotronNanoModelProvider12Bv2(NemotronHModelProvider):
     hybrid_override_pattern: str = "M-M-M-M*-M-M-M-M*-M-M-M-M*-M-M-M-M*-M-M-M-M*-M-M-M-M*-M-M-M-M-"
     num_layers: int = 62
     hidden_size: int = 5120
+    kv_channels: int = 128
     mamba_num_heads: int = 128
     mamba_state_dim: int = 128
     ffn_hidden_size: int = 20480
