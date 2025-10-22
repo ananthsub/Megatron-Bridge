@@ -414,7 +414,6 @@ def main():
     try:
         family_pkg = importlib.import_module(family_pkg_path)
         config_builder = getattr(family_pkg, recipe_attr)
-        logging.info(f"Successfully loaded recipe function: {family_pkg_path}.{recipe_attr}")
     except (ImportError, AttributeError) as e:
         raise ValueError(
             f"Unable to import recipe '{recipe_attr}' from '{family_pkg_path}'. "
