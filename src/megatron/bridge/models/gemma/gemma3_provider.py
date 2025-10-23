@@ -75,12 +75,11 @@ class Gemma3ModelProvider(GPTModelProvider):
     rope_scaling_factor: float = 1.0
     # Disable cuDNN attention since TE 1.8 does not support head dim > 128
     attention_backend: AttnBackend = AttnBackend.flash
-    softmax_scale: float = 1.0 / math.sqrt(256)
 
     # mlp
     gated_linear_unit: bool = True
     add_bias_linear: bool = False
-    activation_func: Callable = field(default_factory=lambda: fast_gelu)  # identical to openai_gelu
+    activation_func: Callable = fast_gelu  # identical to openai_gelu
 
     # Do not change
     is_vision_language: bool = False
@@ -90,8 +89,6 @@ class Gemma3ModelProvider(GPTModelProvider):
         default_factory=lambda: gemma3_layer_spec
     )
     scatter_embedding_sequence_parallel: bool = True
-    apply_rope_fusion: bool = True
-    masked_softmax_fusion: bool = True
 
     # Data type settings to match HF models
     bf16: bool = True

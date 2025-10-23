@@ -168,10 +168,6 @@ class GPTModelProvider(TransformerConfig, ModelProviderMixin[MCoreGPTModel]):
     masked_softmax_fusion: bool = True
     cross_entropy_loss_fusion: bool = True  # Generally beneficial, no specific dependencies
     gradient_accumulation_fusion: bool = field(default_factory=fusions.can_enable_gradient_accumulation_fusion)
-    bias_activation_fusion: bool = False  # Disabled by default as it can interfere with certain architectures
-    persist_layer_norm: bool = False
-    bias_dropout_fusion: bool = True
-    apply_rope_fusion: bool = True
 
     # If True, restore the modelopt_state that contains quantization, sparsity, speculative decoding transformation state.
     # When resuming modelopt_state, we also change the transformer_layer_spec to `megatron.core.post_training.modelopt.gpt.model_specs` which is a combination of local spec + TEDotProductAttention.
@@ -338,6 +334,7 @@ class GPTProvider126M(GPTModelProvider):
     num_attention_heads: int = 12
     bias_activation_fusion: bool = True
     bias_dropout_add_fusion: bool = True
+    use_transformer_engine_full_layer_spec: bool = True
 
 
 @dataclass
@@ -355,6 +352,7 @@ class GPTProvider5B(GPTModelProvider):
     num_attention_heads: int = 32
     bias_activation_fusion: bool = True
     bias_dropout_add_fusion: bool = True
+    use_transformer_engine_full_layer_spec: bool = True
 
 
 @dataclass
@@ -372,6 +370,7 @@ class GPTProvider7B(GPTModelProvider):
     num_attention_heads: int = 32
     bias_activation_fusion: bool = True
     bias_dropout_add_fusion: bool = True
+    use_transformer_engine_full_layer_spec: bool = True
 
 
 @dataclass
@@ -389,6 +388,7 @@ class GPTProvider20B(GPTModelProvider):
     num_attention_heads: int = 48
     bias_activation_fusion: bool = True
     bias_dropout_add_fusion: bool = True
+    use_transformer_engine_full_layer_spec: bool = True
 
 
 @dataclass
@@ -406,6 +406,7 @@ class GPTProvider40B(GPTModelProvider):
     num_attention_heads: int = 64
     bias_activation_fusion: bool = True
     bias_dropout_add_fusion: bool = True
+    use_transformer_engine_full_layer_spec: bool = True
 
 
 @dataclass
@@ -425,4 +426,5 @@ class GPTProvider175B(GPTModelProvider):
     attention_dropout: float = 0.0
     bias_activation_fusion: bool = True
     bias_dropout_add_fusion: bool = True
+    use_transformer_engine_full_layer_spec: bool = True
     layernorm_zero_centered_gamma: bool = True
