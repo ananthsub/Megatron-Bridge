@@ -16,28 +16,13 @@ import logging
 import warnings
 from dataclasses import dataclass
 
-import torch
-import torch.nn.functional as F
+from megatron.core.activations import squared_relu
 
 from megatron.bridge.models.mamba.mamba_provider import MambaModelProvider
 from megatron.bridge.utils.common_utils import get_rank_safe
 
 
 logger = logging.getLogger(__name__)
-
-
-def nemotron_h_squared_relu(x: torch.Tensor) -> torch.Tensor:
-    """Squared ReLU activation function used in Nemotron-H models.
-
-    Computes: ReLU(x)^2
-
-    Args:
-        x: Input tensor
-
-    Returns:
-        Squared ReLU of input tensor
-    """
-    return torch.pow(F.relu(x), 2)
 
 
 @dataclass
@@ -49,7 +34,7 @@ class NemotronHModelProvider(MambaModelProvider):
     mamba_head_dim: int = 64
     num_query_groups: int = 8
     make_vocab_size_divisible_by: int = 128
-    activation_func: callable = nemotron_h_squared_relu
+    activation_func: callable = squared_relu
     masked_softmax_fusion: bool = True
     apply_query_key_layer_scaling: bool = False
     persist_layer_norm: bool = True
