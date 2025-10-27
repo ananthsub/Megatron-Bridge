@@ -677,7 +677,6 @@ def _ddp_wrap(
     else:
         DP = DistributedDataParallel
 
-    # Use a separate CUDA stream for DDP initialization to avoid memory fragmentation
     with torch.cuda.stream(torch.cuda.Stream()):
         model = [
             DP(
@@ -691,10 +690,10 @@ def _ddp_wrap(
             for (model_chunk_idx, model_chunk) in enumerate(model)
         ]
 
-        # Broadcast params from data parallel src rank to other data parallel ranks.
-        if data_parallel_random_init:
-            for model_module in model:
-                model_module.broadcast_params()
+    # Broadcast params from data parallel src rank to other data parallel ranks.
+    if data_parallel_random_init:
+        for model_module in model:
+            model_module.broadcast_params()
 
     return model
 
