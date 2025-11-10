@@ -188,7 +188,7 @@ class TestLoRAFinetune:
 
         try:
             seq_length = 512
-            packed_sequence_size = 4096  # Use larger pack size to test packing (matching NeMo)
+            packed_sequence_size = 4096  # Use larger pack size to test packing
             pretrain_iters = 10
             lora_iters = 5
 
@@ -210,6 +210,7 @@ class TestLoRAFinetune:
             )
             # Ensure micro_batch_size is 1 for packed sequences (requirement)
             lora_cfg.train.micro_batch_size = 1
+            lora_cfg.train.eval_iters = 2
 
             finetune(lora_cfg, forward_step)
             verify_checkpoint_files(lora_checkpoint_dir, lora_iters)

@@ -23,6 +23,7 @@ from megatron.core.num_microbatches_calculator import get_num_microbatches
 from megatron.core.pipeline_parallel import get_forward_backward_func
 from megatron.core.rerun_state_machine import RerunDataIterator, RerunMode, get_rerun_state_machine
 from megatron.core.transformer import MegatronModule
+from megatron.core.utils import get_model_config
 
 from megatron.bridge.data.finetuning import prepare_finetuning_batch
 from megatron.bridge.data.iterator_utils import make_data_iterator_list
@@ -95,6 +96,9 @@ def evaluate(
         else:
             forward_backward_func = get_forward_backward_func()
 
+        cfg: ConfigContainer = state.cfg
+        model_config = get_model_config(model[0])
+
         iteration = 0
         while iteration < state.cfg.train.eval_iters:
             iteration += 1
@@ -136,6 +140,7 @@ def evaluate(
             )
             fault_tolerance.on_eval_step_end(state)
             config.timers = state.timers
+
 
             # Empty unused memory
             if state.cfg.train.empty_unused_memory_level >= 1:
