@@ -23,6 +23,7 @@ from megatron.core.num_microbatches_calculator import get_num_microbatches
 from megatron.core.pipeline_parallel import get_forward_backward_func
 from megatron.core.rerun_state_machine import RerunDataIterator, RerunMode, get_rerun_state_machine
 from megatron.core.transformer import MegatronModule
+from megatron.core.utils import get_model_config
 
 from megatron.bridge.training import fault_tolerance
 from megatron.bridge.training.config import ConfigContainer
@@ -93,6 +94,9 @@ def evaluate(
         else:
             forward_backward_func = get_forward_backward_func()
 
+        cfg: ConfigContainer = state.cfg
+        model_config = get_model_config(model[0])
+
         iteration = 0
         while iteration < state.cfg.train.eval_iters:
             iteration += 1
@@ -102,14 +106,29 @@ def evaluate(
             # Don't care about timing during evaluation
             config.timers = None
             fault_tolerance.on_eval_step_start(state)
+
+            eval_seq_length = model_config.seq_length
+            forward_backward_data_iterator = data_iterator
+
+            if cfg.dataset.dataloader_type == "batch":
+                from megatron.bridge.data.finetuning import prepare_finetuning_batch
+
+                forward_backward_data_iterator, eval_seq_length = prepare_finetuning_batch(
+                    data_iterator=data_iterator,
+                    num_microbatches=eval_num_microbatches,
+                    default_seq_length=model_config.seq_length,
+                    seq_key="tokens",
+                )
+
             loss_dicts = forward_backward_func(
                 forward_step_func=wrapped_forward_step,
-                data_iterator=data_iterator,
+                data_iterator=forward_backward_data_iterator,
                 model=model,
                 num_microbatches=eval_num_microbatches,
-                seq_length=state.cfg.model.seq_length,
+                seq_length=eval_seq_length,
                 micro_batch_size=state.cfg.train.micro_batch_size,
                 forward_only=True,
+                decoder_seq_length=eval_seq_length,
             )
             fault_tolerance.on_eval_step_end(state)
             config.timers = state.timers
@@ -156,15 +175,30 @@ def evaluate(
         if non_loss_data_func is not None:
             collected_non_loss_data = non_loss_data_func(model)
         elif process_non_loss_data_func is not None and is_last_rank():
+            non_loss_seq_length = model_config.seq_length
+            forward_backward_data_iterator = data_iterator
+            non_loss_num_microbatches = get_num_microbatches()
+
+            if cfg.dataset.dataloader_type == "batch":
+                from megatron.bridge.data.finetuning import prepare_finetuning_batch
+
+                forward_backward_data_iterator, non_loss_seq_length = prepare_finetuning_batch(
+                    data_iterator=data_iterator,
+                    num_microbatches=non_loss_num_microbatches,
+                    default_seq_length=model_config.seq_length,
+                    seq_key="tokens",
+                )
+
             collected_non_loss_data = forward_backward_func(
                 forward_step_func=wrapped_forward_step,
-                data_iterator=data_iterator,
+                data_iterator=forward_backward_data_iterator,
                 model=model,
-                num_microbatches=get_num_microbatches(),
-                seq_length=state.cfg.model.seq_length,
+                num_microbatches=non_loss_num_microbatches,
+                seq_length=non_loss_seq_length,
                 micro_batch_size=state.cfg.train.micro_batch_size,
                 forward_only=True,
                 collect_non_loss_data=True,
+                decoder_seq_length=non_loss_seq_length,
             )
 
     # Move model back to the train mode.

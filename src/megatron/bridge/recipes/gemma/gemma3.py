@@ -15,17 +15,19 @@
 import os
 
 import torch
+from megatron.core.distributed import DistributedDataParallelConfig
 from typing_extensions import TypedDict, Unpack
 
 from megatron.bridge.models.gemma.gemma3_provider import Gemma3ModelProvider1B
+from megatron.bridge.peft.base import PEFT
 from megatron.bridge.recipes.utils.dataset_utils import get_blend_fields_from_data_paths
+from megatron.bridge.recipes.utils.finetune_utils import default_peft_config, default_squad_config
 from megatron.bridge.recipes.utils.optimizer_utils import distributed_fused_adam_with_cosine_annealing
 from megatron.bridge.recipes.utils.tokenizer_utils import DEFAULT_NULL_TOKENIZER_VOCAB_SIZE
 from megatron.bridge.training.comm_overlap import CommOverlapConfig
 from megatron.bridge.training.config import (
     CheckpointConfig,
     ConfigContainer,
-    DistributedDataParallelConfig,
     GPTDatasetConfig,
     LoggerConfig,
     RNGConfig,
@@ -78,7 +80,25 @@ class Gemma3CommonKwargs(TypedDict, total=False):
     comm_overlap_config: CommOverlapConfig | None
 
 
+class Gemma3FinetuneKwargs(Gemma3CommonKwargs, total=False):
+    """Typed options accepted by Gemma3 finetuning recipe helper functions."""
+
+    # Core finetuning options
+    pretrained_checkpoint: str | None
+    peft: str | PEFT | None
+    packed_sequence: bool
+
+    # Training params
+    finetune_lr: float
+
+    # W&B logging
+    wandb_project: str | None
+    wandb_entity: str | None
+    wandb_exp_name: str | None
+
+
 # Sequence length constants
+SEQUENCE_LENGTH_8K: int = 8192
 SEQUENCE_LENGTH_32K: int = 32768
 SEQUENCE_LENGTH_128K: int = 131072
 
@@ -91,7 +111,7 @@ def gemma3_1b_pretrain_config(**user_kwargs: Unpack[Gemma3CommonKwargs]) -> Conf
     """
     recommended_kwargs: Gemma3CommonKwargs = {
         "provider_class": Gemma3ModelProvider1B,
-        "hf_path": "google/gemma-3-1b",
+        "hf_path": "google/gemma-3-1b-pt",
         "tensor_model_parallel_size": 1,
         "pipeline_model_parallel_size": 1,
         "context_parallel_size": 1,
@@ -146,7 +166,7 @@ def _gemma3_common(
 
     Args:
         provider_class (type): Gemma3 model provider class (e.g., Gemma3ModelProvider1B).
-        hf_path (str | None): HuggingFace model path (e.g., "google/gemma-3-1b").
+        hf_path (str | None): HuggingFace model path (e.g., "google/gemma-3-1b-pt").
         dir (str | None): Base directory for saving logs and checkpoints.
         name (str): Name of the pre-training run.
         data_paths (list[str] | None): List of paths to dataset files. If None, mock data will be used.
@@ -276,3 +296,154 @@ def _gemma3_common(
     )
 
     return cfg
+
+
+def gemma3_1b_finetune_config(**user_kwargs: Unpack[Gemma3FinetuneKwargs]) -> ConfigContainer:
+    """Return a finetuning config for Gemma3 1B.
+
+    Default configuration: 1 node, 8 GPUs
+    - LoRA/DoRA: TP=1, PP=1, LR=1e-4
+    - Full SFT: TP=1, PP=1, LR=5e-6
+    """
+    peft_value = user_kwargs.get("peft", "lora")
+    is_full_sft = peft_value is None or (isinstance(peft_value, str) and peft_value.lower() == "none")
+
+    recommended_kwargs: Gemma3FinetuneKwargs = {
+        "provider_class": Gemma3ModelProvider1B,
+        "hf_path": "google/gemma-3-1b-pt",
+        "tensor_model_parallel_size": 1,
+        "pipeline_model_parallel_size": 1,
+        "peft": peft_value,
+        "finetune_lr": 5e-6 if is_full_sft else 1e-4,
+    }
+    combined_kwargs: Gemma3FinetuneKwargs = {**recommended_kwargs, **user_kwargs}
+    return _gemma3_finetune_common(**combined_kwargs)
+
+
+def _gemma3_finetune_common(
+    provider_class: type,
+    hf_path: str | None = None,
+    dir: str | None = None,
+    name: str = "default",
+    # Core model configuration
+    tensor_model_parallel_size: int = 1,
+    pipeline_model_parallel_size: int = 1,
+    pipeline_dtype: torch.dtype | None = None,
+    virtual_pipeline_model_parallel_size: int | None = None,
+    context_parallel_size: int = 1,
+    sequence_parallel: bool = False,
+    use_megatron_fsdp: bool = False,
+    # Finetuning-specific params
+    pretrained_checkpoint: str | None = None,
+    peft: str | PEFT | None = "lora",
+    packed_sequence: bool = False,
+    # Training params
+    train_iters: int = 1000,
+    global_batch_size: int | None = None,  # Auto-select based on packed_sequence if None
+    micro_batch_size: int = 1,
+    seq_length: int | None = None,  # Auto-select based on packed_sequence if None
+    eval_interval: int = 30,
+    save_interval: int = 50,
+    # Optimizer
+    finetune_lr: float = 1e-4,
+    min_lr: float = 0.0,
+    lr_warmup_iters: int = 50,
+    lr_decay_iters: int | None = None,
+    # W&B logging
+    wandb_project: str | None = None,
+    wandb_entity: str | None = None,
+    wandb_exp_name: str | None = None,
+    # Precision
+    precision_config: MixedPrecisionConfig | str | None = "bf16_mixed",
+    comm_overlap_config: CommOverlapConfig | None = None,
+) -> ConfigContainer:
+    """Common finetuning configuration for Gemma3 models."""
+
+    # Setup directories
+    base_output_dir = dir if dir is not None else os.path.join(os.getcwd(), "nemo_experiments")
+    run_output_dir = os.path.join(base_output_dir, name)
+    checkpoint_dir = os.path.join(run_output_dir, "checkpoints")
+    tensorboard_dir = os.path.join(run_output_dir, "tb_logs")
+
+    # Auto-select seq_length based on packed_sequence
+    if seq_length is None:
+        seq_length = 4096 if packed_sequence else 2048
+
+    # Auto-select global_batch_size based on packed_sequence
+    if global_batch_size is None:
+        global_batch_size = 8 if packed_sequence else 128
+
+    # Create model config
+    model_cfg = provider_class()
+    model_cfg.tensor_model_parallel_size = tensor_model_parallel_size
+    model_cfg.pipeline_model_parallel_size = pipeline_model_parallel_size
+    model_cfg.pipeline_dtype = pipeline_dtype
+    model_cfg.virtual_pipeline_model_parallel_size = virtual_pipeline_model_parallel_size
+    model_cfg.context_parallel_size = context_parallel_size
+    model_cfg.sequence_parallel = sequence_parallel
+    model_cfg.seq_length = seq_length
+
+    opt_cfg, scheduler_cfg = distributed_fused_adam_with_cosine_annealing(
+        lr_warmup_iters=lr_warmup_iters,
+        lr_decay_iters=lr_decay_iters,
+        max_lr=finetune_lr,
+        min_lr=min_lr,
+        adam_beta2=0.98,
+    )
+
+    # PEFT config - use default helper with custom dim/alpha for Gemma3
+    peft_config = default_peft_config(peft)
+
+    # Apply Gemma3-specific PEFT settings (dim=8, alpha=16)
+    if peft_config is not None:
+        peft_config.dim = 8
+        peft_config.alpha = 16
+        # Disable cross_entropy_loss_fusion for PEFT
+        model_cfg.cross_entropy_fusion_impl = None
+        # Disable distributed optimizer for PEFT
+        opt_cfg.use_distributed_optimizer = False
+
+    # Logger
+    logger_cfg = LoggerConfig(
+        log_interval=1,
+        tensorboard_dir=tensorboard_dir,
+        log_timers_to_tensorboard=True,
+        wandb_project=wandb_project,
+        wandb_entity=wandb_entity,
+        wandb_exp_name=wandb_exp_name,
+    )
+
+    # Always use HF tokenizer for finetuning
+    tokenizer_cfg = TokenizerConfig(
+        tokenizer_type="HuggingFaceTokenizer",
+        tokenizer_model=hf_path,
+    )
+
+    return ConfigContainer(
+        model=model_cfg,
+        train=TrainingConfig(
+            train_iters=train_iters,
+            eval_interval=eval_interval,
+            eval_iters=32,
+            global_batch_size=global_batch_size,
+            micro_batch_size=micro_batch_size,
+        ),
+        optimizer=opt_cfg,
+        scheduler=scheduler_cfg,
+        ddp=DistributedDataParallelConfig(check_for_nan_in_grad=True),
+        dataset=default_squad_config(seq_length, packed_sequence),
+        logger=logger_cfg,
+        tokenizer=tokenizer_cfg,
+        checkpoint=CheckpointConfig(
+            save_interval=save_interval,
+            save=checkpoint_dir,
+            load=checkpoint_dir,
+            pretrained_checkpoint=pretrained_checkpoint,
+            ckpt_format="torch_dist",
+            fully_parallel_save=True,
+        ),
+        rng=RNGConfig(seed=5678),
+        peft=peft_config,
+        comm_overlap=comm_overlap_config,
+        mixed_precision=precision_config,
+    )

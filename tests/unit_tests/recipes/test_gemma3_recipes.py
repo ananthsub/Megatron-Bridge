@@ -15,9 +15,10 @@
 #
 # Test purpose:
 # - Parametrize over all exported Gemma3 recipe functions in `megatron.bridge.recipes.gemma`.
-# - For each recipe, monkeypatch the provider class with a lightweight fake to avoid I/O.
+# - For each recipe, monkeypatch provider classes with a lightweight fake to avoid I/O.
 # - Build a config with small, safe overrides and assert it forms a valid `ConfigContainer`.
-# - Verify tokenizer selection honors `use_null_tokenizer`, and sanity-check parallelism fields.
+# - Verify tokenizer selection: pretrain recipes honor `use_null_tokenizer`, finetune recipes always use HF tokenizer.
+# - Sanity-check parallelism fields and finetuning-specific requirements.
 #
 
 import importlib
@@ -27,7 +28,7 @@ import pytest
 
 
 _gemma_module = importlib.import_module("megatron.bridge.recipes.gemma")
-_GEMMA3_RECIPE_FUNCS = [
+_GEMMA_RECIPE_FUNCS = [
     getattr(_gemma_module, name)
     for name in getattr(_gemma_module, "__all__", [])
     if callable(getattr(_gemma_module, name, None))
@@ -35,30 +36,45 @@ _GEMMA3_RECIPE_FUNCS = [
 
 
 def _safe_overrides_for(name: str) -> dict:
+    # Minimal, dependency-light overrides for fast unit testing
     overrides = {
         "name": f"unit_{name}",
-        "dir": ".",
-        "mock": True,
+        "dir": ".",  # keep paths local
         "train_iters": 10,
         "global_batch_size": 2,
         "micro_batch_size": 1,
         "seq_length": 64,
-        "lr": 1e-4,
-        "min_lr": 1e-5,
-        "lr_warmup_iters": 2,
+        # Keep parallelism tiny so provider shaping is trivial
         "tensor_model_parallel_size": 1,
         "pipeline_model_parallel_size": 1,
         "context_parallel_size": 1,
-        "use_null_tokenizer": True,
     }
 
-    # Large models/variants may set additional flags in recipes; keep harmless defaults
-    lname = name.lower()
-    if "12b" in lname or "27b" in lname:
+    # Detect if this is a finetune recipe
+    is_finetune = "finetune" in name.lower()
+
+    if is_finetune:
+        # Finetuning-specific overrides
         overrides.update(
             {
-                "virtual_pipeline_model_parallel_size": None,
-                "sequence_parallel": True,
+                "finetune_lr": 1e-4,
+                "min_lr": 1e-5,
+                "lr_warmup_iters": 2,
+                "peft": None,  # Disable PEFT for simpler testing
+                "pretrained_checkpoint": "/fake/checkpoint/path",  # Required for finetuning
+            }
+        )
+        # Note: Finetuning always uses HF tokenizer, never null tokenizer
+    else:
+        # Pretrain-specific overrides
+        overrides.update(
+            {
+                "mock": True,  # use mock data paths
+                "lr": 1e-4,
+                "min_lr": 1e-5,
+                "lr_warmup_iters": 2,
+                # Prefer NullTokenizer in tests to avoid HF tokenizer I/O
+                "use_null_tokenizer": True,
             }
         )
 
@@ -66,28 +82,26 @@ def _safe_overrides_for(name: str) -> dict:
 
 
 class _FakeModelCfg:
-    """Fake model configuration for testing."""
+    # Minimal provider to accept attribute assignments used in recipes
 
     def __init__(self):
-        # Set default attributes that recipes might set
-        self.tensor_model_parallel_size = 1
-        self.pipeline_model_parallel_size = 1
-        self.pipeline_dtype = None
-        self.virtual_pipeline_model_parallel_size = None
-        self.context_parallel_size = 1
-        self.sequence_parallel = False
-        self.seq_length = 64
-        self.account_for_embedding_in_pipeline_split = False
-        self.account_for_loss_in_pipeline_split = False
+        self.cross_entropy_fusion_impl = "native"
 
     def finalize(self):
+        # gemma3 recipe may call finalize(); make it a no-op
         return None
+
+
+def _fake_provider_factory():
+    """Return a callable that returns _FakeModelCfg instances."""
+    return lambda: _FakeModelCfg()
 
 
 def _assert_basic_config(cfg):
     from megatron.bridge.training.config import ConfigContainer
 
     assert isinstance(cfg, ConfigContainer)
+    # Required top-level sections
     assert cfg.model is not None
     assert cfg.train is not None
     assert cfg.optimizer is not None
@@ -98,27 +112,28 @@ def _assert_basic_config(cfg):
     assert cfg.checkpoint is not None
     assert cfg.rng is not None
 
+    # A few critical fields
     assert cfg.train.global_batch_size >= 1
     assert cfg.train.micro_batch_size >= 1
-    assert cfg.dataset.sequence_length >= 1
+
+    # Check sequence length (different attribute names for different dataset types)
+    if hasattr(cfg.dataset, "sequence_length"):
+        assert cfg.dataset.sequence_length >= 1  # GPTDatasetConfig
+    elif hasattr(cfg.dataset, "seq_length"):
+        assert cfg.dataset.seq_length >= 1  # FinetuningDatasetConfig / HFDatasetConfig
+    else:
+        # Some other dataset type
+        assert cfg.dataset is not None
 
 
-@pytest.mark.parametrize("recipe_func", _GEMMA3_RECIPE_FUNCS)
+@pytest.mark.parametrize("recipe_func", _GEMMA_RECIPE_FUNCS)
 def test_each_gemma3_recipe_builds_config(recipe_func: Callable, monkeypatch: pytest.MonkeyPatch):
-    """Test that each Gemma3 recipe function builds a valid configuration."""
-    # Monkeypatch the provider classes to return fake model configs
-    from megatron.bridge.models.gemma import gemma3_provider
+    # Monkeypatch provider classes in the specific module where the recipe function is defined
+    module_name = recipe_func.__module__
+    mod = importlib.import_module(module_name)
 
-    # Create a fake provider class that returns a fake model config
-    class FakeProvider(_FakeModelCfg):
-        def __init__(self, *args, **kwargs):
-            super().__init__()
-
-    # Monkeypatch all provider classes
-    monkeypatch.setattr(gemma3_provider, "Gemma3ModelProvider1B", FakeProvider)
-    monkeypatch.setattr(gemma3_provider, "Gemma3ModelProvider4B", FakeProvider)
-    monkeypatch.setattr(gemma3_provider, "Gemma3ModelProvider12B", FakeProvider)
-    monkeypatch.setattr(gemma3_provider, "Gemma3ModelProvider27B", FakeProvider)
+    # Monkeypatch Gemma3ModelProvider1B to return our fake
+    monkeypatch.setattr(mod, "Gemma3ModelProvider1B", _fake_provider_factory())
 
     overrides = _safe_overrides_for(recipe_func.__name__)
 
@@ -126,8 +141,30 @@ def test_each_gemma3_recipe_builds_config(recipe_func: Callable, monkeypatch: py
 
     _assert_basic_config(cfg)
 
-    if overrides.get("use_null_tokenizer") and hasattr(cfg, "tokenizer") and hasattr(cfg.tokenizer, "tokenizer_type"):
-        assert cfg.tokenizer.tokenizer_type == "NullTokenizer"
+    # Ensure tokenizer choice matches recipe type
+    is_finetune = "finetune" in recipe_func.__name__.lower()
+    if is_finetune:
+        # Finetuning recipes always use HF tokenizer
+        assert cfg.tokenizer.tokenizer_type == "HuggingFaceTokenizer"
+        assert cfg.tokenizer.tokenizer_model is not None
+    else:
+        # Pretrain recipes honor use_null_tokenizer override
+        if overrides.get("use_null_tokenizer"):
+            assert cfg.tokenizer.tokenizer_type == "NullTokenizer"
+            assert cfg.tokenizer.vocab_size is not None
+        else:
+            assert cfg.tokenizer.tokenizer_type == "HuggingFaceTokenizer"
+            assert cfg.tokenizer.tokenizer_model is not None
 
+    # Parallelism and shaping
     assert getattr(cfg.model, "tensor_model_parallel_size", 1) >= 1
     assert getattr(cfg.model, "pipeline_model_parallel_size", 1) >= 1
+
+    # Finetuning-specific assertions
+    if is_finetune:
+        # Should have pretrained_checkpoint set (even if fake)
+        assert cfg.checkpoint.pretrained_checkpoint is not None
+        # Should have PEFT config (or None if disabled in test)
+        assert hasattr(cfg, "peft")  # peft field should exist
+        # Dataset should be configured (SQuAD by default)
+        assert cfg.dataset is not None

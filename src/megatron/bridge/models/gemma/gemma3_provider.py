@@ -73,8 +73,8 @@ class Gemma3ModelProvider(GPTModelProvider):
     attention_dropout: float = 0.0
     hidden_dropout: float = 0.0
     rope_scaling_factor: float = 1.0
-    # Disable cuDNN attention since TE 1.8 does not support head dim > 128
-    attention_backend: AttnBackend = AttnBackend.flash
+    # Use FusedAttention as FlashAttention 2 doesn't support head_dim=256 on many architectures
+    attention_backend: AttnBackend = AttnBackend.fused
     softmax_scale: float = 1.0 / math.sqrt(256)
 
     # mlp
@@ -252,6 +252,7 @@ class Gemma3SelfAttention(SelfAttention):
         rotary_pos_emb: Optional[Union[Tensor, Tuple[Tensor, Tensor]]] = None,
         rotary_pos_cos: Optional[Tensor] = None,
         rotary_pos_sin: Optional[Tensor] = None,
+        rotary_pos_cos_sin: Optional[Tensor] = None,
         attention_bias: Optional[Tensor] = None,
         packed_seq_params: Optional[PackedSeqParams] = None,
         sequence_len_offset: Optional[int] = None,
@@ -260,7 +261,7 @@ class Gemma3SelfAttention(SelfAttention):
     ) -> Tuple[Tensor, Tensor]:
         """Switch to either local or global rope embedding before forward"""
         assert isinstance(rotary_pos_emb, tuple)
-        assert rotary_pos_cos is None and rotary_pos_sin is None
+        assert rotary_pos_cos is None and rotary_pos_sin is None and rotary_pos_cos_sin is None
 
         if _is_local_attn_layer(self.layer_number, self.config.interleaved_attn_pattern):
             final_rotary_pos_emb = rotary_pos_emb[0]
