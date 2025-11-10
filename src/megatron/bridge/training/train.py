@@ -686,7 +686,7 @@ def maybe_synchronize_training_step(train_sync_interval: Optional[int], iteratio
 
 
 def maybe_report_stragglers(
-    log_interval: Optional[int],
+    log_interval: int,
     log_straggler: bool,
     straggler_timer: Any,
     iteration: int,
@@ -695,7 +695,7 @@ def maybe_report_stragglers(
     """Reports straggler metrics if logging is enabled.
 
     Args:
-        log_interval: Iteration interval for logging; ``None`` disables reporting.
+        log_interval: Iteration interval for logging.
         log_straggler: Whether straggler logging is enabled.
         straggler_timer: Timer utility used to record straggler metrics.
         iteration: Zero-based training iteration counter.
