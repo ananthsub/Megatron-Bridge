@@ -887,6 +887,19 @@ class GPTSFTPackedDataset(GPTSFTDataset):
             # target length (2048, 4096, 8192), so there is very minimal padding
             max_length = max(len(length) for length in input_ids)
             max_length = min(self.max_seq_length, self._ceil_to_nearest(max_length, self.pad_seq_length_to_mult))
+
+        # For Context Parallel > 1, ensure max_length is divisible by 2 * cp_size
+        # This is required by get_batch_on_this_cp_rank which splits sequences across CP ranks
+        from megatron.core import parallel_state
+
+        if parallel_state.is_initialized():
+            cp_size = parallel_state.get_context_parallel_world_size()
+            if cp_size > 1:
+                cp_divisor = 2 * cp_size
+                if max_length % cp_divisor != 0:
+                    max_length = ((max_length + cp_divisor - 1) // cp_divisor) * cp_divisor
+                    max_length = min(max_length, self.max_seq_length)
+
         assert max_length <= self.max_seq_length
 
         position_ids: list[list[int]] = []
