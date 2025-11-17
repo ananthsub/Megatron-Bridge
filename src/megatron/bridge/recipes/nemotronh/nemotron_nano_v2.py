@@ -17,11 +17,13 @@ import os
 import torch
 from typing_extensions import TypedDict, Unpack
 
+from megatron.bridge import AutoBridge
 from megatron.bridge.models.nemotronh import (
     NemotronNano9Bv2Provider,
     NemotronNano12Bv2Provider,
 )
 from megatron.bridge.recipes.utils.dataset_utils import get_blend_fields_from_data_paths
+from megatron.bridge.recipes.utils.finetune_utils import default_squad_config
 from megatron.bridge.recipes.utils.optimizer_utils import distributed_fused_adam_with_cosine_annealing
 from megatron.bridge.recipes.utils.tokenizer_utils import DEFAULT_NULL_TOKENIZER_VOCAB_SIZE
 from megatron.bridge.training.comm_overlap import CommOverlapConfig
@@ -35,7 +37,7 @@ from megatron.bridge.training.config import (
     TokenizerConfig,
     TrainingConfig,
 )
-from megatron.bridge.training.mixed_precision import MixedPrecisionConfig
+from megatron.bridge.training.mixed_precision import MixedPrecisionConfig, bf16_mixed, get_mixed_precision_config
 
 
 class NemotronNanoV2CommonKwargs(TypedDict, total=False):
@@ -283,5 +285,245 @@ def _nemotron_nano_v2_common(
             tp_comm_bootstrap_backend="nccl",
             tp_comm_overlap=True,
         )
+
+    return cfg
+
+
+class NemotronNanoV2FinetuneKwargs(TypedDict, total=False):
+    """Typed options accepted by Nemotron Nano v2 finetuning recipe helper functions."""
+
+    # Core identifiers
+    hf_path: str
+    dir: str | None
+    name: str
+
+    # Finetuning-specific
+    pretrained_checkpoint: str | None
+    packed_sequence: bool
+    vocab_file: str | None
+
+    # Training hyperparameters
+    train_iters: int
+    global_batch_size: int | None
+    micro_batch_size: int
+    seq_length: int | None
+    eval_interval: int
+    save_interval: int
+
+    # Optimizer
+    finetune_lr: float | None
+    min_lr: float
+    lr_warmup_iters: int
+    lr_decay_iters: int | None
+
+    # W&B logging
+    wandb_project: str | None
+    wandb_entity: str | None
+    wandb_exp_name: str | None
+
+    # Precision
+    precision_config: MixedPrecisionConfig | str | None
+
+
+def nemotron_nano_9b_v2_finetune_config(**user_kwargs: Unpack[NemotronNanoV2FinetuneKwargs]) -> ConfigContainer:
+    """Return a finetuning config for Nemotron Nano 9B v2.
+
+    Default configuration: 8 nodes, 64 GPUs, Full SFT only
+    - Full SFT: TP=2, PP=1, SP=True, LR=1e-4
+    """
+    # Auto-select LR if not specified
+    finetune_lr = user_kwargs.get("finetune_lr")
+    if finetune_lr is None:
+        finetune_lr = 1e-4
+        user_kwargs["finetune_lr"] = finetune_lr
+
+    # Build base config
+    config = _nemotron_nano_v2_finetune_common(hf_path="nvidia/NVIDIA-Nemotron-Nano-9B-v2-Base", **user_kwargs)
+
+    # Model-specific parallelism settings
+    config.model.tensor_model_parallel_size = 2
+    config.model.pipeline_model_parallel_size = 1
+    config.model.sequence_parallel = True
+
+    return config
+
+
+def nemotron_nano_12b_v2_finetune_config(**user_kwargs: Unpack[NemotronNanoV2FinetuneKwargs]) -> ConfigContainer:
+    """Return a finetuning config for Nemotron Nano 12B v2.
+
+    Default configuration: 8 nodes, 64 GPUs, Full SFT only
+    - Full SFT: TP=4, PP=1, SP=True, LR=1e-4
+    - Uses FP8 precision by default
+    """
+    # Auto-select LR if not specified
+    finetune_lr = user_kwargs.get("finetune_lr")
+    if finetune_lr is None:
+        finetune_lr = 1e-4
+        user_kwargs["finetune_lr"] = finetune_lr
+
+    # Use FP8 precision by default for 12B
+    if "precision_config" not in user_kwargs:
+        user_kwargs["precision_config"] = "nanov2_bf16_with_fp8_current_scaling_mixed"
+
+    # Build base config
+    config = _nemotron_nano_v2_finetune_common(hf_path="nvidia/NVIDIA-Nemotron-Nano-12B-v2-Base", **user_kwargs)
+
+    # Model-specific parallelism settings
+    config.model.tensor_model_parallel_size = 4
+    config.model.pipeline_model_parallel_size = 1
+    config.model.sequence_parallel = True
+
+    return config
+
+
+def _nemotron_nano_v2_finetune_common(
+    hf_path: str,
+    dir: str | None = None,
+    name: str = "default",
+    # Finetuning-specific
+    pretrained_checkpoint: str | None = None,
+    vocab_file: str | None = None,
+    # Training hyperparameters
+    train_iters: int = 300,
+    global_batch_size: int | None = None,
+    micro_batch_size: int = 1,
+    seq_length: int | None = None,
+    eval_interval: int = 50,
+    save_interval: int = 100,
+    # Optimizer
+    finetune_lr: float | None = None,
+    min_lr: float = 0.0,
+    lr_warmup_iters: int = 50,
+    lr_decay_iters: int | None = None,
+    # W&B logging
+    wandb_project: str | None = None,
+    wandb_entity: str | None = None,
+    wandb_exp_name: str | None = None,
+    # Precision
+    precision_config: MixedPrecisionConfig | str | None = None,
+) -> ConfigContainer:
+    """
+    Create a finetuning configuration for Nemotron Nano v2 models using AutoBridge.
+
+    Args:
+        hf_path (str): HuggingFace model path (e.g., "nvidia/NVIDIA-Nemotron-Nano-9B-v2-Base").
+        dir (str | None): Base directory for saving logs and checkpoints.
+        name (str): Name of the finetuning run.
+        pretrained_checkpoint (str | None): Path to pretrained checkpoint to load.
+        vocab_file (str | None): Path to Tiktoken vocab file. If provided, uses TiktokenTokenizer;
+            otherwise uses HuggingFaceTokenizer with hf_path.
+        train_iters (int): Total number of training iterations.
+        global_batch_size (int | None): Global batch size for training.
+        micro_batch_size (int): Micro batch size for training.
+        seq_length (int | None): Sequence length for training data.
+        eval_interval (int): Evaluation interval.
+        save_interval (int): Checkpoint save interval.
+        finetune_lr (float | None): Learning rate for finetuning.
+        min_lr (float): Minimum learning rate for cosine decay.
+        lr_warmup_iters (int): Number of warmup iterations for the learning rate.
+        lr_decay_iters (int | None): Number of iterations over which to decay the LR.
+        wandb_project (str | None): Weights & Biases project name.
+        wandb_entity (str | None): Weights & Biases entity name.
+        wandb_exp_name (str | None): Weights & Biases experiment name.
+        precision_config (MixedPrecisionConfig | str | None): Precision configuration for the model.
+
+    Returns:
+        ConfigContainer: Configuration for finetuning.
+    """
+    # Default sequence length for finetuning (Nemotron Nano v2 uses 8K context)
+    if seq_length is None:
+        seq_length = 8192
+
+    # Default global batch size
+    if global_batch_size is None:
+        global_batch_size = 768
+
+    base_output_dir = dir if dir is not None else os.path.join(os.getcwd(), "nemo_experiments")
+    run_output_dir = os.path.join(base_output_dir, name)
+    checkpoint_dir = os.path.join(run_output_dir, "checkpoints")
+    tensorboard_dir = os.path.join(run_output_dir, "tb_logs")
+
+    # Create model config using AutoBridge (like NemotronH)
+    bridge = AutoBridge.from_hf_pretrained(hf_path, trust_remote_code=True)
+    model_cfg = bridge.to_megatron_provider(load_weights=False)
+
+    # Precision configuration
+    if precision_config is None:
+        precision_config = bf16_mixed()
+    elif isinstance(precision_config, str):
+        precision_config = get_mixed_precision_config(precision_config)
+
+    # Sequence length
+    model_cfg.seq_length = seq_length
+
+    # Optimizer and scheduler
+    opt_config, scheduler = distributed_fused_adam_with_cosine_annealing(
+        lr_warmup_iters=lr_warmup_iters,
+        lr_decay_iters=lr_decay_iters if lr_decay_iters is not None else train_iters,
+        max_lr=finetune_lr if finetune_lr is not None else 1e-4,
+        min_lr=min_lr,
+        adam_beta1=0.9,
+        adam_beta2=0.95,
+        adam_eps=1e-5,
+        weight_decay=0.1,
+    )
+
+    # Dataset configuration (SQuAD by default)
+    dataset_config = default_squad_config(seq_length=seq_length, packed_sequence=False)
+
+    # W&B logger configuration
+    logger_config = LoggerConfig(
+        log_interval=10,
+        tensorboard_dir=tensorboard_dir,
+        wandb_project=wandb_project,
+        wandb_entity=wandb_entity,
+        wandb_exp_name=wandb_exp_name,
+    )
+
+    # Config Container
+    cfg = ConfigContainer(
+        model=model_cfg,
+        train=TrainingConfig(
+            train_iters=train_iters,
+            eval_interval=eval_interval,
+            eval_iters=10,
+            global_batch_size=global_batch_size,
+            micro_batch_size=micro_batch_size,
+            manual_gc=True,
+            manual_gc_interval=100,
+            manual_gc_eval=100,
+        ),
+        optimizer=opt_config,
+        scheduler=scheduler,
+        ddp=DistributedDataParallelConfig(
+            check_for_nan_in_grad=True,
+            grad_reduce_in_fp32=True,
+            overlap_grad_reduce=True,
+            overlap_param_gather=False,
+            use_distributed_optimizer=True,
+        ),
+        dataset=dataset_config,
+        logger=logger_config,
+        tokenizer=TokenizerConfig(
+            tokenizer_type="TiktokenTokenizer" if vocab_file else "HuggingFaceTokenizer",
+            tokenizer_model=vocab_file if vocab_file else hf_path,
+        ),
+        checkpoint=CheckpointConfig(
+            save_interval=save_interval,
+            save=checkpoint_dir,
+            load=checkpoint_dir,
+            pretrained_checkpoint=pretrained_checkpoint,
+            ckpt_format="torch_dist",
+            dist_ckpt_strictness="log_all",
+        ),
+        rng=RNGConfig(seed=5678),  # Different seed for finetuning
+        mixed_precision=precision_config,
+    )
+
+    # Enable default comm overlap for Nemotron Nano v2
+    cfg.comm_overlap = CommOverlapConfig(
+        tp_comm_bootstrap_backend="nccl",
+        tp_comm_overlap=True,
+    )
 
     return cfg
