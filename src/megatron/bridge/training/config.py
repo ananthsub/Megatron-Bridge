@@ -1210,6 +1210,9 @@ class ConfigContainer(Container):
             if self.comm_overlap is not None:
                 self.comm_overlap.data_parallel_size = self.data_parallel_size
 
+        if self.dist.use_torch_fsdp2 and (self.dist.use_megatron_fsdp or self.ddp.use_megatron_fsdp):
+            raise ValueError("Using use_megatron_fsdp and use_torch_fsdp2 at the same time is not supported.")
+
         # Torch FSDP2 validations and settings
         self._validate_and_apply_torch_fsdp2_config()
 
@@ -1218,9 +1221,6 @@ class ConfigContainer(Container):
 
         # Run validations
         _validate_and_sync_distributed_optimizer_settings(self)
-
-        if self.dist.use_megatron_fsdp and self.dist.use_torch_fsdp2:
-            raise ValueError("Using use_megatron_fsdp and use_torch_fsdp2 at the same time is not supported.")
 
         # Megatron FSDP Config checks
         if self.dist.use_megatron_fsdp or self.ddp.use_megatron_fsdp:
