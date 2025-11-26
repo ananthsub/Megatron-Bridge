@@ -5,7 +5,7 @@
 * Model Collection Support
 
   * LLM
-    * Conversion + training recipes:
+    * HuggingFace Conversion + training recipes:
       * GPT-oss
       * Qwen3 Next
       * Nemotron-H
@@ -14,7 +14,6 @@
       * OlMoE
       * GLM 4.5
       * Gemma 3
-      * HuggingFace 
     * HuggingFace conversion support:
       * Llama Nemotron
       * Mistral
