@@ -79,7 +79,7 @@ def get_workload_base_config(
         workload_base_config_name = f"{model_recipe_name}_{gpu}_{compute_dtype}"
     else:
         workload_base_config_name = f"{model_recipe_name}_{gpu}_{compute_dtype}"
-    workload_base_config_name = workload_base_config_name.upper() + "_BASE_CONFIG"
+    workload_base_config_name = workload_base_config_name.upper()
 
     module_name = f"configs.{model_family_name}"
     try:
