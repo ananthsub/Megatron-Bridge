@@ -11,8 +11,10 @@ from megatron.bridge.training.tokenizers.bert_tokenization import FullTokenizer 
 from megatron.bridge.training.tokenizers.config import TokenizerConfig
 from megatron.bridge.training.tokenizers.gpt2_tokenization import GPT2Tokenizer
 from megatron.bridge.training.tokenizers.multimodal_tokenizer import MultimodalTokenizer
+from megatron.bridge.training.tokenizers.utils import build_tokenizer as build_new_tokenizer
 from megatron.bridge.utils.common_utils import get_rank_safe, print_rank_0
 
+from megatron.core.tokenizers import MegatronTokenizer
 
 try:
     from megatron.core.datasets.megatron_tokenizer import MegatronLegacyTokenizer as MegatronTokenizerCore
@@ -52,7 +54,7 @@ def _compute_space_sensitive(tokenizer_instance: "MegatronTokenizer", default: b
         return default
 
 
-class MegatronTokenizer(MegatronTokenizerCore):
+class MegatronLegacyTokenizer(MegatronTokenizerCore):
     """Base tokenizer class, extending the MegatronTokenizer from megatron core.
 
     This class provides a common interface for various tokenizers used within the NeMo framework.
@@ -87,7 +89,7 @@ class MegatronTokenizer(MegatronTokenizerCore):
         return self.mask
 
 
-def build_tokenizer(tokenizer_config: TokenizerConfig, **kwargs) -> MegatronTokenizer:
+def build_tokenizer(tokenizer_config: TokenizerConfig, **kwargs) -> MegatronLegacyTokenizer | MegatronTokenizer:
     """Initialize tokenizer based on the provided configuration.
 
     This function serves as a factory to instantiate various tokenizer types
@@ -112,81 +114,84 @@ def build_tokenizer(tokenizer_config: TokenizerConfig, **kwargs) -> MegatronToke
     if get_rank_safe() == 0:
         print("> building {} tokenizer ...".format(tokenizer_config.tokenizer_type), flush=True)
 
-    # Select and instantiate the tokenizer.
-    if tokenizer_config.tokenizer_type == "BertWordPieceLowerCase":
-        assert tokenizer_config.vocab_file is not None
-        tokenizer = _BertWordPieceTokenizer(
-            vocab_file=tokenizer_config.vocab_file, lower_case=True, vocab_extra_ids=tokenizer_config.vocab_extra_ids
-        )
-    elif tokenizer_config.tokenizer_type == "BertWordPieceCase":
-        assert tokenizer_config.vocab_file is not None
-        tokenizer = _BertWordPieceTokenizer(
-            vocab_file=tokenizer_config.vocab_file, lower_case=False, vocab_extra_ids=tokenizer_config.vocab_extra_ids
-        )
-    elif tokenizer_config.tokenizer_type == "GPT2BPETokenizer":
-        assert tokenizer_config.vocab_file is not None
-        assert tokenizer_config.merge_file is not None
-        tokenizer = _GPT2BPETokenizer(tokenizer_config.vocab_file, tokenizer_config.merge_file)
-    elif tokenizer_config.tokenizer_type == "SentencePieceTokenizer":
-        assert tokenizer_config.tokenizer_model is not None
-        tokenizer = _SentencePieceTokenizer(
-            tokenizer_config.tokenizer_model, vocab_extra_ids=tokenizer_config.vocab_extra_ids
-        )
-    elif tokenizer_config.tokenizer_type == "GPTSentencePieceTokenizer":
-        assert tokenizer_config.tokenizer_model is not None
-        tokenizer = _GPTSentencePieceTokenizer(tokenizer_config.tokenizer_model)
-    elif tokenizer_config.tokenizer_type == "HuggingFaceTokenizer":
-        # Merge config-based kwargs with any passed kwargs (passed kwargs take precedence)
-        hf_kwargs = tokenizer_config.hf_tokenizer_kwargs or {}
-        hf_kwargs.update(kwargs)
-        tokenizer = _HuggingFaceTokenizer(tokenizer_config.tokenizer_model, **hf_kwargs)
-    elif tokenizer_config.tokenizer_type == "Llama2Tokenizer":
-        assert tokenizer_config.tokenizer_model is not None
-        tokenizer = _Llama2Tokenizer(tokenizer_config.tokenizer_model)
-    elif tokenizer_config.tokenizer_type == "TikTokenizer":
-        assert tokenizer_config.tokenizer_model is not None
-        assert tokenizer_config.tiktoken_pattern is not None
-        assert tokenizer_config.tiktoken_pattern in {"v1", "v2"}
-        pattern_tiktoken = r"[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"
-        pattern_tiktoken_v2 = "[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]*[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]+|[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]+[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]*|\\p{N}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n/]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+"  # pylint: disable=line-too-long
-        pattern = pattern_tiktoken if tokenizer_config.tiktoken_pattern == "v1" else pattern_tiktoken_v2
-        tokenizer = CustomTikTokenizer(
-            path=tokenizer_config.tokenizer_model,
-            pattern=pattern,
-            vocab_size=tokenizer_config.vocab_size,
-            num_special_tokens=tokenizer_config.tiktoken_num_special_tokens,
-            special_tokens=tokenizer_config.tiktoken_special_tokens,
-        )
-    elif tokenizer_config.tokenizer_type == "NullTokenizer":
-        assert tokenizer_config.vocab_size is not None
-        tokenizer = _NullTokenizer(tokenizer_config.vocab_size)
-    elif tokenizer_config.tokenizer_type == "MultimodalTokenizer":
-        try:
-            import transformers as _transformers
-        except ImportError as exc:
-            raise ImportError("MultimodalTokenizer currently requires transformers library to be installed") from exc
-        kwargs = {}
-        if tokenizer_config.tokenizer_prompt_format == "nvlm-yi-34b":
-            kwargs = {"from_slow": True, "legacy": False, "add_bos_token": True}
-        underlying_tokenizer = _transformers.AutoTokenizer.from_pretrained(
-            pretrained_model_name_or_path=tokenizer_config.tokenizer_model, **kwargs
-        )
-        tokenizer = MultimodalTokenizer(
-            underlying_tokenizer,
-            tokenizer_config.tokenizer_prompt_format,
-            tokenizer_config.special_tokens,
-            tokenizer_config.image_tag_type,
-        )
-    elif tokenizer_config.tokenizer_type == "NullMultimodalTokenizer":
-        assert tokenizer_config.vocab_size is not None
-        tokenizer = _NullMultimodalTokenizer(tokenizer_config.vocab_size)
+    if tokenizer_config.legacy_tokenizer or tokenizer_config.tokenizer_type == "MultimodalTokenizer":
+        # Select and instantiate the tokenizer.
+        if tokenizer_config.tokenizer_type == "BertWordPieceLowerCase":
+            assert tokenizer_config.vocab_file is not None
+            tokenizer = _BertWordPieceTokenizer(
+                vocab_file=tokenizer_config.vocab_file, lower_case=True, vocab_extra_ids=tokenizer_config.vocab_extra_ids
+            )
+        elif tokenizer_config.tokenizer_type == "BertWordPieceCase":
+            assert tokenizer_config.vocab_file is not None
+            tokenizer = _BertWordPieceTokenizer(
+                vocab_file=tokenizer_config.vocab_file, lower_case=False, vocab_extra_ids=tokenizer_config.vocab_extra_ids
+            )
+        elif tokenizer_config.tokenizer_type == "GPT2BPETokenizer":
+            assert tokenizer_config.vocab_file is not None
+            assert tokenizer_config.merge_file is not None
+            tokenizer = _GPT2BPETokenizer(tokenizer_config.vocab_file, tokenizer_config.merge_file)
+        elif tokenizer_config.tokenizer_type == "SentencePieceTokenizer":
+            assert tokenizer_config.tokenizer_model is not None
+            tokenizer = _SentencePieceTokenizer(
+                tokenizer_config.tokenizer_model, vocab_extra_ids=tokenizer_config.vocab_extra_ids
+            )
+        elif tokenizer_config.tokenizer_type == "GPTSentencePieceTokenizer":
+            assert tokenizer_config.tokenizer_model is not None
+            tokenizer = _GPTSentencePieceTokenizer(tokenizer_config.tokenizer_model)
+        elif tokenizer_config.tokenizer_type == "HuggingFaceTokenizer":
+            # Merge config-based kwargs with any passed kwargs (passed kwargs take precedence)
+            hf_kwargs = tokenizer_config.hf_tokenizer_kwargs or {}
+            hf_kwargs.update(kwargs)
+            tokenizer = _HuggingFaceTokenizer(tokenizer_config.tokenizer_model, **hf_kwargs)
+        elif tokenizer_config.tokenizer_type == "Llama2Tokenizer":
+            assert tokenizer_config.tokenizer_model is not None
+            tokenizer = _Llama2Tokenizer(tokenizer_config.tokenizer_model)
+        elif tokenizer_config.tokenizer_type == "TikTokenizer":
+            assert tokenizer_config.tokenizer_model is not None
+            assert tokenizer_config.tiktoken_pattern is not None
+            assert tokenizer_config.tiktoken_pattern in {"v1", "v2"}
+            pattern_tiktoken = r"[^\r\n\p{L}\p{N}]?+\p{L}+|\p{N}| ?[^\s\p{L}\p{N}]++[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s+"
+            pattern_tiktoken_v2 = "[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]*[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]+|[^\\r\\n\\p{L}\\p{N}]?[\\p{Lu}\\p{Lt}\\p{Lm}\\p{Lo}\\p{M}]+[\\p{Ll}\\p{Lm}\\p{Lo}\\p{M}]*|\\p{N}| ?[^\\s\\p{L}\\p{N}]+[\\r\\n/]*|\\s*[\\r\\n]+|\\s+(?!\\S)|\\s+"  # pylint: disable=line-too-long
+            pattern = pattern_tiktoken if tokenizer_config.tiktoken_pattern == "v1" else pattern_tiktoken_v2
+            tokenizer = CustomTikTokenizer(
+                path=tokenizer_config.tokenizer_model,
+                pattern=pattern,
+                vocab_size=tokenizer_config.vocab_size,
+                num_special_tokens=tokenizer_config.tiktoken_num_special_tokens,
+                special_tokens=tokenizer_config.tiktoken_special_tokens,
+            )
+        elif tokenizer_config.tokenizer_type == "NullTokenizer":
+            assert tokenizer_config.vocab_size is not None
+            tokenizer = _NullTokenizer(tokenizer_config.vocab_size)
+        elif tokenizer_config.tokenizer_type == "MultimodalTokenizer":
+            try:
+                import transformers as _transformers
+            except ImportError as exc:
+                raise ImportError("MultimodalTokenizer currently requires transformers library to be installed") from exc
+            kwargs = {}
+            if tokenizer_config.tokenizer_prompt_format == "nvlm-yi-34b":
+                kwargs = {"from_slow": True, "legacy": False, "add_bos_token": True}
+            underlying_tokenizer = _transformers.AutoTokenizer.from_pretrained(
+                pretrained_model_name_or_path=tokenizer_config.tokenizer_model, **kwargs
+            )
+            tokenizer = MultimodalTokenizer(
+                underlying_tokenizer,
+                tokenizer_config.tokenizer_prompt_format,
+                tokenizer_config.special_tokens,
+                tokenizer_config.image_tag_type,
+            )
+        elif tokenizer_config.tokenizer_type == "NullMultimodalTokenizer":
+            assert tokenizer_config.vocab_size is not None
+            tokenizer = _NullMultimodalTokenizer(tokenizer_config.vocab_size)
+        else:
+            raise NotImplementedError("{} tokenizer is not implemented.".format(tokenizer_config.tokenizer_type))
     else:
-        raise NotImplementedError("{} tokenizer is not implemented.".format(tokenizer_config.tokenizer_type))
+        tokenizer = build_new_tokenizer(tokenizer_config)
 
     return tokenizer
 
 
-class _HuggingFaceTokenizer(MegatronTokenizer):
+class _HuggingFaceTokenizer(MegatronLegacyTokenizer):
     def __init__(self, pretrained_model_name_or_path, **kwargs):
         super().__init__(pretrained_model_name_or_path, **kwargs)
         try:
@@ -278,7 +283,7 @@ class _HuggingFaceTokenizer(MegatronTokenizer):
         return self._tokenizer.mask_token_id
 
 
-class _BertWordPieceTokenizer(MegatronTokenizer):
+class _BertWordPieceTokenizer(MegatronLegacyTokenizer):
     """Original BERT wordpiece tokenizer adapted for Megatron.
 
     This tokenizer uses the `FullBertTokenizer` from `bert_tokenization`.
@@ -436,7 +441,7 @@ class _BertWordPieceTokenizer(MegatronTokenizer):
         self._additional_special_tokens = value
 
 
-class _GPT2BPETokenizer(MegatronTokenizer):
+class _GPT2BPETokenizer(MegatronLegacyTokenizer):
     """Original GPT-2 BPE tokenizer adapted for Megatron.
 
     This tokenizer uses the `GPT2Tokenizer` from `gpt2_tokenization`.
@@ -488,7 +493,7 @@ class _GPT2BPETokenizer(MegatronTokenizer):
         return self.eod_id
 
 
-class _SentencePieceTokenizer(MegatronTokenizer):
+class _SentencePieceTokenizer(MegatronLegacyTokenizer):
     """A wrapper for SentencePiece tokenizers used with Megatron.
 
     This class interfaces with a pre-trained SentencePiece model.
@@ -1031,7 +1036,7 @@ class CustomTikTokenizer(MegatronTokenizer):
         return self._id_to_token
 
 
-class _NullTokenizer(MegatronTokenizer):
+class _NullTokenizer(MegatronLegacyTokenizer):
     """A simple tokenizer that splits text by spaces and converts tokens to integers.
     This tokenizer is primarily for testing or placeholder purposes where actual
     linguistic tokenization is not required. It assumes tokens are space-separated

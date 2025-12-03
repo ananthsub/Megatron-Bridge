@@ -1,0 +1,72 @@
+# Copyright (c) 2025, NVIDIA CORPORATION.  All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from megatron.core.tokenizers import MegatronTokenizer
+
+from megatron.bridge.training.tokenizers.config import TokenizerConfig
+
+MEGATRON_TOKENIZERS = ['BertWordPieceLowerCase', 'BertWordPieceCase', 'GPT2BPETokenizer']
+
+SP_TOKENIZERS = ['SentencePieceTokenizer', 'GPTSentencePieceTokenizer', 'Llama2Tokenizer']
+
+
+def build_tokenizer(config: TokenizerConfig) -> MegatronTokenizer:
+    """ """
+    kwargs = {}
+    tokenizer_library = None
+    tokenizer_path = None
+    if config.tokenizer_type in MEGATRON_TOKENIZERS:
+        tokenizer_library = 'megatron'
+        tokenizer_path = config.tokenizer_type
+        if tokenizer_path == 'BertWordPieceCase':
+            special_tokens = {}
+            special_tokens['additional_special_tokens'] = [f'<extra_id_{i}>' for i in range(100)]
+            kwargs = special_tokens
+        kwargs['vocab_file'] = config.vocab_file
+        kwargs['merges_file'] = config.merge_file
+    elif config.tokenizer_type in SP_TOKENIZERS:
+        tokenizer_library = 'sentencepiece'
+        tokenizer_path = config.tokenizer_model
+    elif config.tokenizer_type == 'TikTokenizer':
+        tokenizer_library = 'tiktoken'
+        tokenizer_path = config.tokenizer_model
+        if config.tiktoken_pattern:
+            kwargs['pattern'] = config.tiktoken_pattern
+        if config.vocab_size:
+            kwargs['vocab_size'] = config.vocab_size
+        kwargs['num_special_tokens'] = config.tiktoken_num_special_tokens
+        kwargs['special_tokens'] = config.tiktoken_special_tokens
+    elif config.tokenizer_type == 'HuggingFaceTokenizer':
+        tokenizer_library = 'huggingface'
+        tokenizer_path = config.tokenizer_model
+        kwargs['vocab_file'] = config.vocab_file
+        kwargs['merges_file'] = config.merge_file
+    elif config.tokenizer_type == 'NullTokenizer':
+        tokenizer_library = 'null'
+        metadata = {'library': tokenizer_library}
+        if config.vocab_size:
+            kwargs['vocab_size'] = config.vocab_size
+        tokenizer = MegatronTokenizer.from_pretrained(metadata_path=metadata, **kwargs)
+
+        return tokenizer
+
+    if config.tokenizer_metadata:
+        metadata = config.tokenizer_metadata
+    else:
+        metadata = {'library': tokenizer_library}
+    tokenizer = MegatronTokenizer.from_pretrained(
+        tokenizer_path=tokenizer_path, metadata_path=metadata, **kwargs
+    )
+
+    return tokenizer

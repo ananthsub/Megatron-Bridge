@@ -20,6 +20,12 @@ from typing import Any, Literal, Optional
 class TokenizerConfig:
     """Configuration settings for the tokenizer."""
 
+    legacy_tokenizer: Optional[bool] = False
+    """To use Megatron-Bridge legacy tokenizer system."""
+
+    metadata_path: Optional[str] = None
+    """Path to the tokenizer metadata file."""
+
     vocab_size: Optional[int] = None
     """Size of vocab before EOD or padding."""
 
@@ -76,6 +82,22 @@ class TokenizerConfig:
         hf_tokenizer_kwargs = {
             "use_fast": True,
             "trust_remote_code": True,
+            "chat_template": "custom_template_string"
+        }
+    """
+
+    sp_tokenizer_kwargs: dict[str, Any] | None = field(default_factory=dict)
+    """Additional keyword arguments to pass to SentencePiece tokenizer.
+
+    Common options include:
+        - legacy (bool): Whether to use legacy format of sentencepiece tokenizer
+        - ignore_extra_whitespaces (bool): Whether to ignore extra whitespaces in the input text while encoding
+        - chat_template (str): Custom chat template string for conversation formatting
+
+    Example:
+        sp_tokenizer_kwargs = {
+            "legacy": True,
+            "ignore_extra_whitespaces": False,
             "chat_template": "custom_template_string"
         }
     """
