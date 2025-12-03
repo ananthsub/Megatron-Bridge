@@ -6,6 +6,14 @@ except ModuleNotFoundError:
     HAVE_MEGATRON_BRIDGE = False
 
 if HAVE_MEGATRON_BRIDGE:
+    from .llama3_llm_finetune import (
+        llama3_8b_sft_config_gb200,
+        llama3_8b_sft_config_h100,
+        llama3_70b_lora_config_gb200,
+        llama3_70b_lora_config_h100,
+        llama3_70b_sft_config_gb200,
+        llama3_70b_sft_config_h100,
+    )
     from .llama3_llm_pretrain import (
         llama3_8b_pretrain_config_b200,
         llama3_8b_pretrain_config_gb200,
@@ -163,6 +171,12 @@ if HAVE_MEGATRON_BRIDGE:
             "llama3_70b_pretrain_config_gb200",
             "llama3_70b_pretrain_config_b200",
             "llama3_70b_pretrain_config_h100",
+            "llama3_8b_sft_config_gb200",
+            "llama3_8b_sft_config_h100",
+            "llama3_70b_sft_config_gb200",
+            "llama3_70b_sft_config_h100",
+            "llama3_70b_lora_config_gb200",
+            "llama3_70b_lora_config_h100",
             "llama31_405b_pretrain_config_gb300",
             "llama31_405b_pretrain_config_gb200",
             "llama31_405b_pretrain_config_b200",

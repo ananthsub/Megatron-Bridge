@@ -75,10 +75,7 @@ def get_workload_base_config(
     task: str,
 ) -> Dict[str, int]:
     """Get the workload base config for a given model, size, GPU, compute dtype, and FP8 recipe."""
-    if task in ["sft", "lora"]:
-        workload_base_config_name = f"{model_recipe_name}_{gpu}_{compute_dtype}"
-    else:
-        workload_base_config_name = f"{model_recipe_name}_{gpu}_{compute_dtype}"
+    workload_base_config_name = f"{model_recipe_name}_{gpu}_{compute_dtype}"
     workload_base_config_name = workload_base_config_name.upper()
 
     module_name = f"configs.{model_family_name}"
