@@ -114,6 +114,15 @@ def build_tokenizer(tokenizer_config: TokenizerConfig, **kwargs) -> MegatronLega
     if get_rank_safe() == 0:
         print("> building {} tokenizer ...".format(tokenizer_config.tokenizer_type), flush=True)
 
+    if tokenizer_config.tiktoken_special_tokens and not tokenizer_config.special_tokens:
+        # add deprecation watning
+        if get_rank_safe() == 0:
+            print(
+                "tiktoken_special_tokens argument is deprecated and will be removed soon. "
+                "Use special_tokens instead."
+            )
+            tokenizer_config.special_tokens = tokenizer_config.tiktoken_special_tokens
+
     if tokenizer_config.legacy_tokenizer or tokenizer_config.tokenizer_type == "MultimodalTokenizer":
         # Select and instantiate the tokenizer.
         if tokenizer_config.tokenizer_type == "BertWordPieceLowerCase":
@@ -158,7 +167,7 @@ def build_tokenizer(tokenizer_config: TokenizerConfig, **kwargs) -> MegatronLega
                 pattern=pattern,
                 vocab_size=tokenizer_config.vocab_size,
                 num_special_tokens=tokenizer_config.tiktoken_num_special_tokens,
-                special_tokens=tokenizer_config.tiktoken_special_tokens,
+                special_tokens=tokenizer_config.special_tokens,
             )
         elif tokenizer_config.tokenizer_type == "NullTokenizer":
             assert tokenizer_config.vocab_size is not None

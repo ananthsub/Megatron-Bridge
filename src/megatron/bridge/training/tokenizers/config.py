@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Any, Literal, Optional
+from typing import Any, Union, Literal, Optional
 
 
 @dataclass
@@ -23,7 +23,7 @@ class TokenizerConfig:
     legacy_tokenizer: Optional[bool] = False
     """To use Megatron-Bridge legacy tokenizer system."""
 
-    metadata_path: Optional[str] = None
+    metadata_path: Optional[Union[str | dict]] = None
     """Path to the tokenizer metadata file."""
 
     vocab_size: Optional[int] = None
@@ -57,6 +57,12 @@ class TokenizerConfig:
     tokenizer_model: Optional[str] = None
     """Sentencepiece tokenizer model."""
 
+    special_tokens: Optional[list[str]] = None
+    """List of special tokens. For TikToken, needs to have ["<unk>", "<s>", "</s>"]"""
+
+    chat_template: Optional[str] = None
+    """Custom chat template in jinja format for conversation formatting"""
+
     tiktoken_pattern: Optional[str] = None
     """Which tiktoken pattern to use. Options: [v1, v2]"""
 
@@ -67,7 +73,6 @@ class TokenizerConfig:
     """List of tiktoken special tokens, needs to have ["<unk>", "<s>", "</s>"]"""
 
     tokenizer_prompt_format: Optional[str] = None
-    special_tokens: Optional[list[str]] = None
     image_tag_type: Optional[str] = None
 
     hf_tokenizer_kwargs: dict[str, Any] | None = field(default_factory=dict)
@@ -76,13 +81,13 @@ class TokenizerConfig:
     Common options include:
         - use_fast (bool): Whether to use fast tokenizer implementation
         - trust_remote_code (bool): Whether to trust remote code when loading tokenizer
-        - chat_template (str): Custom chat template string for conversation formatting
+        - include_special_tokens (bool): Whether to include special tokens when converting text to ids
 
     Example:
         hf_tokenizer_kwargs = {
             "use_fast": True,
             "trust_remote_code": True,
-            "chat_template": "custom_template_string"
+            "include_special_tokens": True
         }
     """
 
@@ -92,12 +97,10 @@ class TokenizerConfig:
     Common options include:
         - legacy (bool): Whether to use legacy format of sentencepiece tokenizer
         - ignore_extra_whitespaces (bool): Whether to ignore extra whitespaces in the input text while encoding
-        - chat_template (str): Custom chat template string for conversation formatting
 
     Example:
         sp_tokenizer_kwargs = {
             "legacy": True,
             "ignore_extra_whitespaces": False,
-            "chat_template": "custom_template_string"
         }
     """
