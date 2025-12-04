@@ -895,7 +895,7 @@ def reload_mergeable_ranks(path: str, max_vocab: Optional[int] = None) -> Dict[b
     return ranks
 
 
-class CustomTikTokenizer(MegatronTokenizer):
+class CustomTikTokenizer(MegatronLegacyTokenizer):
     """A custom tokenizer using the Tiktoken library with a NeMo-style vocabulary file.
     This tokenizer loads a vocabulary from a JSON file (processed by
     `reload_mergeable_ranks`) and uses it with Tiktoken for encoding and decoding.

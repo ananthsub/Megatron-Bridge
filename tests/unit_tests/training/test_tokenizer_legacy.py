@@ -31,6 +31,7 @@ class TestTokenizerConfig:
         config = TokenizerConfig(
             tokenizer_type="HuggingFaceTokenizer",
             tokenizer_model="bert-base-uncased",
+            legacy_tokenizer=True,
         )
         assert config.hf_tokenizer_kwargs == {}
 
@@ -44,6 +45,7 @@ class TestTokenizerConfig:
         config = TokenizerConfig(
             tokenizer_type="HuggingFaceTokenizer",
             tokenizer_model="meta-llama/Llama-2-7b-chat-hf",
+            legacy_tokenizer=True,
             hf_tokenizer_kwargs=custom_kwargs,
         )
         assert config.hf_tokenizer_kwargs == custom_kwargs
@@ -68,6 +70,7 @@ class TestBuildTokenizer:
         config = TokenizerConfig(
             tokenizer_type="HuggingFaceTokenizer",
             tokenizer_model="gpt2",
+            legacy_tokenizer=True,
             hf_tokenizer_kwargs=custom_kwargs,
         )
 
@@ -103,6 +106,7 @@ class TestBuildTokenizer:
         config = TokenizerConfig(
             tokenizer_type="HuggingFaceTokenizer",
             tokenizer_model="gpt2",
+            legacy_tokenizer=True,
             hf_tokenizer_kwargs=config_kwargs,
         )
 
@@ -124,6 +128,7 @@ class TestBuildTokenizer:
         config = TokenizerConfig(
             tokenizer_type="HuggingFaceTokenizer",
             tokenizer_model="gpt2",
+            legacy_tokenizer=True,
             # hf_tokenizer_kwargs not set, should default to {}
         )
 
@@ -149,6 +154,7 @@ class TestBuildTokenizer:
         config = TokenizerConfig(
             tokenizer_type="HuggingFaceTokenizer",
             tokenizer_model="meta-llama/Llama-2-7b-chat-hf",
+            legacy_tokenizer=True,
             hf_tokenizer_kwargs=custom_kwargs,
         )
 
@@ -171,6 +177,7 @@ class TestBuildTokenizer:
         config = TokenizerConfig(
             tokenizer_type="SentencePieceTokenizer",
             tokenizer_model="tokenizer.model",
+            legacy_tokenizer=True,
             hf_tokenizer_kwargs={"use_fast": True},  # Should be ignored
         )
 
@@ -200,6 +207,7 @@ class TestHuggingFaceTokenizerIntegration:
         config = TokenizerConfig(
             tokenizer_type="HuggingFaceTokenizer",
             tokenizer_model="gpt2",
+            legacy_tokenizer=True,
             hf_tokenizer_kwargs={"use_fast": False},
         )
 
@@ -227,6 +235,7 @@ class TestHuggingFaceTokenizerIntegration:
         config = TokenizerConfig(
             tokenizer_type="HuggingFaceTokenizer",
             tokenizer_model="gpt2",
+            legacy_tokenizer=True,
             # No hf_tokenizer_kwargs specified
         )
 
@@ -330,6 +339,7 @@ def test_hf_tokenizer_eos_property(mock_get_rank, mock_hf_cls):
     cfg = TokenizerConfig(
         tokenizer_type="HuggingFaceTokenizer",
         tokenizer_model="dummy-model",
+        legacy_tokenizer=True,
         hf_tokenizer_kwargs={"_eos_token_id": 7},
     )
     tok = build_tokenizer(cfg)
@@ -345,21 +355,25 @@ def test_hf_tokenizer_none_eos_property(mock_get_rank, mock_hf_cls):
     type(inst).eos_id = None
     mock_hf_cls.return_value = inst
 
-    cfg = TokenizerConfig(tokenizer_type="HuggingFaceTokenizer", tokenizer_model="dummy")
+    cfg = TokenizerConfig(tokenizer_type="HuggingFaceTokenizer", tokenizer_model="dummy", legacy_tokenizer=True)
     tok = build_tokenizer(cfg)
     assert tok.eos is None
     assert tok.eos_id is None
 
 
 def test_sentencepiece_tokenizer_eos_property(mock_sentencepiece):
-    cfg = TokenizerConfig(tokenizer_type="SentencePieceTokenizer", tokenizer_model="sp.model")
+    cfg = TokenizerConfig(
+        tokenizer_type="SentencePieceTokenizer", tokenizer_model="sp.model", legacy_tokenizer=True
+    )
     tok = build_tokenizer(cfg)
     assert tok.eos == 2
     assert tok.eos_id == 2
 
 
 def test_gpt_sentencepiece_tokenizer_eos_property(mock_sentencepiece):
-    cfg = TokenizerConfig(tokenizer_type="GPTSentencePieceTokenizer", tokenizer_model="sp.model")
+    cfg = TokenizerConfig(
+        tokenizer_type="GPTSentencePieceTokenizer", tokenizer_model="sp.model", legacy_tokenizer=True
+    )
     tok = build_tokenizer(cfg)
     assert tok.eos == 2
     assert tok.eos_id == 2
@@ -375,7 +389,7 @@ def test_llama2_tokenizer_eos_property(mock_get_rank, mock_llama2_cls, mock_sent
     type(inst).eod = 2
     mock_llama2_cls.return_value = inst
 
-    cfg = TokenizerConfig(tokenizer_type="Llama2Tokenizer", tokenizer_model="sp.model")
+    cfg = TokenizerConfig(tokenizer_type="Llama2Tokenizer", tokenizer_model="sp.model", legacy_tokenizer=True)
     tok = build_tokenizer(cfg)
     assert tok.eos == 2
     assert tok.eos_id == 2
@@ -391,7 +405,9 @@ def test_gpt2_bpe_tokenizer_eos_property(mock_get_rank, mock_gpt2_cls):
     type(inst).eod = 50256
     mock_gpt2_cls.return_value = inst
 
-    cfg = TokenizerConfig(tokenizer_type="GPT2BPETokenizer", vocab_file="vocab.json", merge_file="merges.txt")
+    cfg = TokenizerConfig(
+        tokenizer_type="GPT2BPETokenizer", vocab_file="vocab.json", merge_file="merges.txt", legacy_tokenizer=True,
+    )
     tok = build_tokenizer(cfg)
     assert tok.eos == 50256
     assert tok.eos_id == 50256
@@ -399,7 +415,7 @@ def test_gpt2_bpe_tokenizer_eos_property(mock_get_rank, mock_gpt2_cls):
 
 
 def test_null_tokenizer_eos_property():
-    cfg = TokenizerConfig(tokenizer_type="NullTokenizer", vocab_size=10)
+    cfg = TokenizerConfig(tokenizer_type="NullTokenizer", vocab_size=10, legacy_tokenizer=True,)
     tok = build_tokenizer(cfg)
     assert tok.eos == 9
     assert tok.eos_id == 9
@@ -428,6 +444,7 @@ def test_tiktokenizer_eos_property(tmp_path):
         tiktoken_pattern="v2",
         tiktoken_num_special_tokens=3,
         tiktoken_special_tokens=["<unk>", "<s>", "</s>"],
+        legacy_tokenizer=True,
     )
     tok = build_tokenizer(cfg)
     # Validate consistency and mapping
@@ -436,7 +453,7 @@ def test_tiktokenizer_eos_property(tmp_path):
 
 
 def test_null_multimodal_tokenizer_basic_properties():
-    cfg = TokenizerConfig(tokenizer_type="NullMultimodalTokenizer", vocab_size=127)
+    cfg = TokenizerConfig(tokenizer_type="NullMultimodalTokenizer", vocab_size=127, legacy_tokenizer=True)
     tok = build_tokenizer(cfg)
 
     assert tok.vocab_size == 127
@@ -445,7 +462,7 @@ def test_null_multimodal_tokenizer_basic_properties():
 
 
 def test_null_multimodal_tokenizer_tokenize_detokenize_offsets():
-    cfg = TokenizerConfig(tokenizer_type="NullMultimodalTokenizer", vocab_size=100)
+    cfg = TokenizerConfig(tokenizer_type="NullMultimodalTokenizer", vocab_size=100, legacy_tokenizer=True)
     tok = build_tokenizer(cfg)
 
     s = "1 23 456"
@@ -459,7 +476,7 @@ def test_null_multimodal_tokenizer_tokenize_detokenize_offsets():
 
 
 def test_null_multimodal_tokenizer_image_token_default():
-    cfg = TokenizerConfig(tokenizer_type="NullMultimodalTokenizer", vocab_size=100)
+    cfg = TokenizerConfig(tokenizer_type="NullMultimodalTokenizer", vocab_size=100, legacy_tokenizer=True)
     tok = build_tokenizer(cfg)
 
     tokens = "1  " + tok._image_token + "  2"
@@ -471,7 +488,7 @@ def test_null_multimodal_tokenizer_image_token_default():
 
 
 def test_null_multimodal_tokenizer_image_token_override():
-    cfg = TokenizerConfig(tokenizer_type="NullMultimodalTokenizer", vocab_size=100)
+    cfg = TokenizerConfig(tokenizer_type="NullMultimodalTokenizer", vocab_size=100, legacy_tokenizer=True)
     tok = build_tokenizer(cfg)
 
     tok._image_token = "<<img>>"
