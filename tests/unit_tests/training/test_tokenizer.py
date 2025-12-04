@@ -18,8 +18,6 @@ from unittest.mock import MagicMock, patch
 from megatron.bridge.training.tokenizers.config import TokenizerConfig
 from megatron.bridge.training.tokenizers.utils import build_tokenizer
 
-from .test_tokenizer_legacy import mock_sentencepiece
-
 
 class TestTokenizers():
     @pytest.mark.parametrize("vocab_size", [32000])
@@ -38,14 +36,10 @@ class TestTokenizers():
         assert tokenizer.vocab_size == (vocab_size + 1)
     
     @patch("megatron.core.tokenizers.text.libraries.MegatronHFTokenizer")
-    @patch("megatron.bridge.training.tokenizers.tokenizer.get_rank_safe", return_value=0)
     @pytest.mark.parametrize("use_fast", [True])
     @pytest.mark.parametrize("include_special_tokens", [False])
-    def test_build_megatron_tokenizer(self, mock_get_rank, mock_hf_tokenizer_class, use_fast, include_special_tokens):
+    def test_build_megatron_tokenizer(self, mock_hf_tokenizer_class, use_fast, include_special_tokens):
         # Setup
-        mock_tokenizer_instance = MagicMock()
-        mock_hf_tokenizer_class.return_value = mock_tokenizer_instance
-
         custom_kwargs = {
             "use_fast": use_fast,
             "include_special_tokens": include_special_tokens,
@@ -66,12 +60,9 @@ class TestTokenizers():
         assert tokenizer.additional_args["include_special_tokens"] == include_special_tokens
     
     @patch("megatron.core.tokenizers.text.libraries.HuggingFaceTokenizer")
-    @patch("megatron.bridge.training.tokenizers.tokenizer.get_rank_safe", return_value=0)
     @pytest.mark.parametrize("chat_template", ["{% for message in messages %}{{ message.content }}{% endfor %}"])
-    def test_build_hf_tokenizer(self, mock_get_rank, mock_hf_tokenizer_class, chat_template):
+    def test_build_hf_tokenizer(self, mock_hf_tokenizer_class, chat_template):
         # Setup
-        mock_tokenizer_instance = MagicMock()
-        mock_hf_tokenizer_class.return_value = mock_tokenizer_instance
         metadata_path = {"library": "huggingface", "chat_template": chat_template}
         config = TokenizerConfig(
             tokenizer_type="HuggingFaceTokenizer",
@@ -88,7 +79,7 @@ class TestTokenizers():
 
     @patch("megatron.core.tokenizers.text.libraries.SentencePieceTokenizer")
     @pytest.mark.parametrize("legacy", [True])
-    def test_build_sp_tokenizer(self, mock_sentencepiece, legacy):
+    def test_build_sp_tokenizer(self, mock_sp_tokenizer, legacy):
         # Setup
         custom_kwargs = {
             "legacy": legacy,
@@ -106,12 +97,12 @@ class TestTokenizers():
 
         # Verify
         assert tokenizer.library == "sentencepiece"
-        assert tokenizer.additional_args["legacy"] == True
+        assert tokenizer.additional_args["legacy"] == legacy
 
     @patch("megatron.core.tokenizers.text.libraries.TikTokenTokenizer")
     @pytest.mark.parametrize("pattern", ["v1"])
     @pytest.mark.parametrize("num_special_tokens", [2000])
-    def test_build_tiktoken_tokenizer(self, mock_sentencepiece, pattern, num_special_tokens):
+    def test_build_tiktoken_tokenizer(self, mock_tiktoken_tokenizer, pattern, num_special_tokens):
         # Setup
         config = TokenizerConfig(
             tokenizer_type="TikTokenizer",
