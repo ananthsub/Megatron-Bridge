@@ -362,9 +362,7 @@ def test_hf_tokenizer_none_eos_property(mock_get_rank, mock_hf_cls):
 
 
 def test_sentencepiece_tokenizer_eos_property(mock_sentencepiece):
-    cfg = TokenizerConfig(
-        tokenizer_type="SentencePieceTokenizer", tokenizer_model="sp.model", legacy_tokenizer=True
-    )
+    cfg = TokenizerConfig(tokenizer_type="SentencePieceTokenizer", tokenizer_model="sp.model", legacy_tokenizer=True)
     tok = build_tokenizer(cfg)
     assert tok.eos == 2
     assert tok.eos_id == 2
@@ -406,7 +404,10 @@ def test_gpt2_bpe_tokenizer_eos_property(mock_get_rank, mock_gpt2_cls):
     mock_gpt2_cls.return_value = inst
 
     cfg = TokenizerConfig(
-        tokenizer_type="GPT2BPETokenizer", vocab_file="vocab.json", merge_file="merges.txt", legacy_tokenizer=True,
+        tokenizer_type="GPT2BPETokenizer",
+        vocab_file="vocab.json",
+        merge_file="merges.txt",
+        legacy_tokenizer=True,
     )
     tok = build_tokenizer(cfg)
     assert tok.eos == 50256
@@ -415,7 +416,7 @@ def test_gpt2_bpe_tokenizer_eos_property(mock_get_rank, mock_gpt2_cls):
 
 
 def test_null_tokenizer_eos_property():
-    cfg = TokenizerConfig(tokenizer_type="NullTokenizer", vocab_size=10, legacy_tokenizer=True,)
+    cfg = TokenizerConfig(tokenizer_type="NullTokenizer", vocab_size=10, legacy_tokenizer=True)
     tok = build_tokenizer(cfg)
     assert tok.eos == 9
     assert tok.eos_id == 9

@@ -16,9 +16,9 @@ from megatron.core.tokenizers import MegatronTokenizer
 
 from megatron.bridge.training.tokenizers.config import TokenizerConfig
 
-MEGATRON_TOKENIZERS = ['BertWordPieceLowerCase', 'BertWordPieceCase', 'GPT2BPETokenizer']
+MEGATRON_TOKENIZERS = ["BertWordPieceLowerCase", "BertWordPieceCase", "GPT2BPETokenizer"]
 
-SP_TOKENIZERS = ['SentencePieceTokenizer', 'GPTSentencePieceTokenizer', 'Llama2Tokenizer']
+SP_TOKENIZERS = ["SentencePieceTokenizer", "GPTSentencePieceTokenizer", "Llama2Tokenizer"]
 
 
 def build_tokenizer(config: TokenizerConfig) -> MegatronTokenizer:
@@ -27,47 +27,43 @@ def build_tokenizer(config: TokenizerConfig) -> MegatronTokenizer:
     tokenizer_library = None
     tokenizer_path = None
     if config.tokenizer_type in MEGATRON_TOKENIZERS:
-        tokenizer_library = 'megatron'
+        tokenizer_library = "megatron"
         tokenizer_path = config.tokenizer_type
-        kwargs['additional_special_tokens'] = (
-            config.special_tokens if config.special_tokens else []
-        )
+        kwargs["additional_special_tokens"] = config.special_tokens if config.special_tokens else []
         if tokenizer_path == 'BertWordPieceCase':
             special_tokens = {}
-            special_tokens['additional_special_tokens'] = [f'<extra_id_{i}>' for i in range(100)]
+            special_tokens["additional_special_tokens"] = [f"<extra_id_{i}>" for i in range(100)]
             kwargs = special_tokens
-        kwargs['vocab_file'] = config.vocab_file
-        kwargs['merges_file'] = config.merge_file
+        kwargs["vocab_file"] = config.vocab_file
+        kwargs["merges_file"] = config.merge_file
         kwargs.update(config.hf_tokenizer_kwargs)
     elif config.tokenizer_type in SP_TOKENIZERS:
-        tokenizer_library = 'sentencepiece'
+        tokenizer_library = "sentencepiece"
         tokenizer_path = config.tokenizer_model
-        kwargs['special_tokens'] = config.special_tokens
+        kwargs["special_tokens"] = config.special_tokens
         kwargs.update(config.sp_tokenizer_kwargs)
-    elif config.tokenizer_type == 'TikTokenizer':
-        tokenizer_library = 'tiktoken'
+    elif config.tokenizer_type == "TikTokenizer":
+        tokenizer_library = "tiktoken"
         tokenizer_path = config.tokenizer_model
         if config.tiktoken_pattern:
-            kwargs['pattern'] = config.tiktoken_pattern
+            kwargs["pattern"] = config.tiktoken_pattern
         if config.vocab_size:
-            kwargs['vocab_size'] = config.vocab_size
-        kwargs['num_special_tokens'] = config.tiktoken_num_special_tokens
-        kwargs['special_tokens'] = config.special_tokens
-        kwargs['vocab_size'] = config.vocab_size
-    elif config.tokenizer_type == 'HuggingFaceTokenizer':
-        tokenizer_library = 'huggingface'
+            kwargs["vocab_size"] = config.vocab_size
+        kwargs["num_special_tokens"] = config.tiktoken_num_special_tokens
+        kwargs["special_tokens"] = config.special_tokens
+        kwargs["vocab_size"] = config.vocab_size
+    elif config.tokenizer_type == "HuggingFaceTokenizer":
+        tokenizer_library = "huggingface"
         tokenizer_path = config.tokenizer_model
-        kwargs['vocab_file'] = config.vocab_file
-        kwargs['merges_file'] = config.merge_file
-        kwargs['additional_special_tokens'] = (
-            config.special_tokens if config.special_tokens else []
-        )
+        kwargs["vocab_file"] = config.vocab_file
+        kwargs["merges_file"] = config.merge_file
+        kwargs["additional_special_tokens"] = config.special_tokens if config.special_tokens else []
         kwargs.update(config.hf_tokenizer_kwargs)
-    elif config.tokenizer_type == 'NullTokenizer':
-        tokenizer_library = 'null'
-        metadata = {'library': tokenizer_library}
+    elif config.tokenizer_type == "NullTokenizer":
+        tokenizer_library = "null"
+        metadata = {"library": tokenizer_library}
         if config.vocab_size:
-            kwargs['vocab_size'] = config.vocab_size
+            kwargs["vocab_size"] = config.vocab_size
         tokenizer = MegatronTokenizer.from_pretrained(metadata_path=metadata, **kwargs)
 
         return tokenizer
@@ -75,7 +71,7 @@ def build_tokenizer(config: TokenizerConfig) -> MegatronTokenizer:
     if config.metadata_path:
         metadata = config.metadata_path
     else:
-        metadata = {'library': tokenizer_library}
+        metadata = {"library": tokenizer_library}
     tokenizer = MegatronTokenizer.from_pretrained(
         tokenizer_path=tokenizer_path, metadata_path=metadata, **kwargs
     )

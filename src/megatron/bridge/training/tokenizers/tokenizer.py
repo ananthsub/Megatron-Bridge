@@ -118,8 +118,7 @@ def build_tokenizer(tokenizer_config: TokenizerConfig, **kwargs) -> MegatronLega
         # add deprecation watning
         if get_rank_safe() == 0:
             print(
-                "tiktoken_special_tokens argument is deprecated and will be removed soon. "
-                "Use special_tokens instead."
+                "tiktoken_special_tokens argument is deprecated and will be removed soon. Use special_tokens instead."
             )
             tokenizer_config.special_tokens = tokenizer_config.tiktoken_special_tokens
 
@@ -128,12 +127,16 @@ def build_tokenizer(tokenizer_config: TokenizerConfig, **kwargs) -> MegatronLega
         if tokenizer_config.tokenizer_type == "BertWordPieceLowerCase":
             assert tokenizer_config.vocab_file is not None
             tokenizer = _BertWordPieceTokenizer(
-                vocab_file=tokenizer_config.vocab_file, lower_case=True, vocab_extra_ids=tokenizer_config.vocab_extra_ids
+                vocab_file=tokenizer_config.vocab_file,
+                lower_case=True,
+                vocab_extra_ids=tokenizer_config.vocab_extra_ids,
             )
         elif tokenizer_config.tokenizer_type == "BertWordPieceCase":
             assert tokenizer_config.vocab_file is not None
             tokenizer = _BertWordPieceTokenizer(
-                vocab_file=tokenizer_config.vocab_file, lower_case=False, vocab_extra_ids=tokenizer_config.vocab_extra_ids
+                vocab_file=tokenizer_config.vocab_file,
+                lower_case=False,
+                vocab_extra_ids=tokenizer_config.vocab_extra_ids,
             )
         elif tokenizer_config.tokenizer_type == "GPT2BPETokenizer":
             assert tokenizer_config.vocab_file is not None
@@ -176,7 +179,9 @@ def build_tokenizer(tokenizer_config: TokenizerConfig, **kwargs) -> MegatronLega
             try:
                 import transformers as _transformers
             except ImportError as exc:
-                raise ImportError("MultimodalTokenizer currently requires transformers library to be installed") from exc
+                raise ImportError(
+                    "MultimodalTokenizer currently requires transformers library to be installed"
+                ) from exc
             kwargs = {}
             if tokenizer_config.tokenizer_prompt_format == "nvlm-yi-34b":
                 kwargs = {"from_slow": True, "legacy": False, "add_bos_token": True}

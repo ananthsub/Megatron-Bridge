@@ -12,14 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import MagicMock, patch
 
 from megatron.bridge.training.tokenizers.config import TokenizerConfig
 from megatron.bridge.training.tokenizers.utils import build_tokenizer
 
 
-class TestTokenizers():
+class TestTokenizers:
     @pytest.mark.parametrize("vocab_size", [32000])
     def test_build_null_tokenizer(self, vocab_size):
         # Setup
@@ -34,7 +35,7 @@ class TestTokenizers():
         # Verify
         assert tokenizer.library == "null"
         assert tokenizer.vocab_size == (vocab_size + 1)
-    
+
     @patch("megatron.core.tokenizers.text.libraries.MegatronHFTokenizer")
     @pytest.mark.parametrize("use_fast", [True])
     @pytest.mark.parametrize("include_special_tokens", [False])
@@ -58,7 +59,7 @@ class TestTokenizers():
         assert tokenizer.path == "GPT2BPETokenizer"
         assert tokenizer.additional_args["use_fast"] == use_fast
         assert tokenizer.additional_args["include_special_tokens"] == include_special_tokens
-    
+
     @patch("megatron.core.tokenizers.text.libraries.HuggingFaceTokenizer")
     @pytest.mark.parametrize("chat_template", ["{% for message in messages %}{{ message.content }}{% endfor %}"])
     def test_build_hf_tokenizer(self, mock_hf_tokenizer_class, chat_template):
