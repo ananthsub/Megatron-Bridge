@@ -16,13 +16,23 @@ from megatron.core.tokenizers import MegatronTokenizer
 
 from megatron.bridge.training.tokenizers.config import TokenizerConfig
 
+
 MEGATRON_TOKENIZERS = ["BertWordPieceLowerCase", "BertWordPieceCase", "GPT2BPETokenizer"]
 
 SP_TOKENIZERS = ["SentencePieceTokenizer", "GPTSentencePieceTokenizer", "Llama2Tokenizer"]
 
 
 def build_tokenizer(config: TokenizerConfig) -> MegatronTokenizer:
-    """ """
+    """Initialize tokenizer from megatron.core.tokenizers based on the provided configuration.
+
+    Args:
+        config (TokenizerConfig): Configuration object specifying the tokenizer
+                                            type, paths to vocab/model files, and other
+                                            tokenizer-specific settings.
+
+    Returns:
+        MegatronTokenizer: An instance of the initialized tokenizer.
+    """
     kwargs = {}
     tokenizer_library = None
     tokenizer_path = None
@@ -30,7 +40,7 @@ def build_tokenizer(config: TokenizerConfig) -> MegatronTokenizer:
         tokenizer_library = "megatron"
         tokenizer_path = config.tokenizer_type
         kwargs["additional_special_tokens"] = config.special_tokens if config.special_tokens else []
-        if tokenizer_path == 'BertWordPieceCase':
+        if tokenizer_path == "BertWordPieceCase":
             special_tokens = {}
             special_tokens["additional_special_tokens"] = [f"<extra_id_{i}>" for i in range(100)]
             kwargs = special_tokens
@@ -72,8 +82,6 @@ def build_tokenizer(config: TokenizerConfig) -> MegatronTokenizer:
         metadata = config.metadata_path
     else:
         metadata = {"library": tokenizer_library}
-    tokenizer = MegatronTokenizer.from_pretrained(
-        tokenizer_path=tokenizer_path, metadata_path=metadata, **kwargs
-    )
+    tokenizer = MegatronTokenizer.from_pretrained(tokenizer_path=tokenizer_path, metadata_path=metadata, **kwargs)
 
     return tokenizer

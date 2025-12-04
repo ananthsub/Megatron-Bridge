@@ -7,14 +7,14 @@ import json
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from megatron.core.tokenizers import MegatronTokenizer
+
 from megatron.bridge.training.tokenizers.bert_tokenization import FullTokenizer as FullBertTokenizer
 from megatron.bridge.training.tokenizers.config import TokenizerConfig
 from megatron.bridge.training.tokenizers.gpt2_tokenization import GPT2Tokenizer
 from megatron.bridge.training.tokenizers.multimodal_tokenizer import MultimodalTokenizer
 from megatron.bridge.training.tokenizers.utils import build_tokenizer as build_new_tokenizer
 from megatron.bridge.utils.common_utils import get_rank_safe, print_rank_0
-
-from megatron.core.tokenizers import MegatronTokenizer
 
 try:
     from megatron.core.datasets.megatron_tokenizer import MegatronLegacyTokenizer as MegatronTokenizerCore
