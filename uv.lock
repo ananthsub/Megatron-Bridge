@@ -3232,7 +3232,7 @@ wheels = [
 
 [[package]]
 name = "nvidia-modelopt"
-version = "0.39.0"
+version = "0.37.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ninja" },
@@ -3251,7 +3251,7 @@ dependencies = [
     { name = "tqdm" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b0/d5/b03ad3ffa28984b629a72da678fa98f912fc45bac3b514c4a70cf2a82fe3/nvidia_modelopt-0.39.0-py3-none-any.whl", hash = "sha256:32f05317c81be1ff2ffeab749e5258b7bea8e4c6e60a09c760584f25ad03f648", size = 864981, upload-time = "2025-11-13T07:35:42.761Z" },
+    { url = "https://files.pythonhosted.org/packages/27/a8/85034a33753a56ef120b931dda1183d98efef1010e379c54d3c3214a5048/nvidia_modelopt-0.37.0-py3-none-any.whl", hash = "sha256:3490b6d6aea3541aa5d475d81230fee627e2c16ff47bbab1cba4b80a1eb119a2", size = 831271, upload-time = "2025-10-08T18:37:03.951Z" },
 ]
 
 [[package]]
