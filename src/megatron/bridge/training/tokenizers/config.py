@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
-from typing import Any, Union, Literal, Optional
+from typing import Any, Literal, Optional, Union
 
 
 @dataclass

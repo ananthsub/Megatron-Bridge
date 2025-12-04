@@ -16,6 +16,7 @@ from megatron.bridge.training.tokenizers.multimodal_tokenizer import MultimodalT
 from megatron.bridge.training.tokenizers.utils import build_tokenizer as build_new_tokenizer
 from megatron.bridge.utils.common_utils import get_rank_safe, print_rank_0
 
+
 try:
     from megatron.core.datasets.megatron_tokenizer import MegatronLegacyTokenizer as MegatronTokenizerCore
 except ImportError:
