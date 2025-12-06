@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Literal, Optional, Union
 
 
@@ -54,8 +55,8 @@ class TokenizerConfig:
     ] = None
     """What type of tokenizer to use."""
 
-    tokenizer_model: Optional[str] = None
-    """Sentencepiece tokenizer model."""
+    tokenizer_model: Optional[Union[str, Path]] = None
+    """Sentencepiece tokenizer model or the `pretrained_model_name_or_path` for a HuggingFace tokenizer."""
 
     special_tokens: Optional[list[str]] = None
     """List of special tokens. For TikToken, needs to have ["<unk>", "<s>", "</s>"]"""
