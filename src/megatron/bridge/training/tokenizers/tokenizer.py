@@ -60,6 +60,10 @@ class MegatronLegacyTokenizer(MegatronTokenizerCore):
 
     This class provides a common interface for various tokenizers used within the NeMo framework.
     """
+    def __init__(self, *args, **kwargs):
+        # Set legacy attribute
+        self.legacy = True
+        super().__init__(*args, **kwargs)
 
     def __call__(self, *args, **kwargs):
         """Makes the tokenizer instance callable, synonym for `tokenize`."""
