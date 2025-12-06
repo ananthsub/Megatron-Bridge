@@ -1074,7 +1074,7 @@ class GPTSFTChatDataset(GPTSFTDataset):
         if not self.use_hf_tokenizer_chat_template:
             LABEL_START = self.special_tokens["label_start"]
             END_NAME_SIGNAL = self.special_tokens["end_of_name"]
-            
+
             id1 = _tokenize(self.tokenizer, PREFIX_STR)
             id2 = _tokenize(self.tokenizer, PREFIX_STR + LABEL_START)
             self.label_start_tokens = id2[len(id1) :]
