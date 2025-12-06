@@ -15,7 +15,6 @@
 from unittest.mock import patch
 
 import pytest
-from transformers import AutoTokenizer
 
 from megatron.bridge.training.tokenizers.config import TokenizerConfig
 from megatron.bridge.training.tokenizers.utils import build_tokenizer
