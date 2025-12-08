@@ -526,6 +526,7 @@ def test_hf_tokenizer_as_local_path_object(tmp_path):
     cfg = TokenizerConfig(
         tokenizer_type="HuggingFaceTokenizer",
         tokenizer_model=local_model_path,
+        legacy_tokenizer=True,
         hf_tokenizer_kwargs={"trust_remote_code": True},
     )
     loaded_tokenizer = build_tokenizer(cfg)
