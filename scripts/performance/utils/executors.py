@@ -18,7 +18,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import nemo_run as run
-from nemo_run.config import get_nemorun_home
+from nemo_run.config import get_nemorun_home, set_nemorun_home
 from nemo_run.core.execution.launcher import SlurmTemplate
 
 
@@ -87,7 +87,7 @@ def slurm_executor(
     ]
 
     if log_dir != get_nemorun_home():
-        PERF_ENV_VARS["NEMORUN_HOME"] = log_dir
+        set_nemorun_home(log_dir)
 
     if wandb_key is not None:
         PERF_ENV_VARS["WANDB_API_KEY"] = wandb_key
