@@ -182,6 +182,14 @@ def dgxc_executor(
         "NCCL_TUNER_PLUGIN": "/opt/gcp-ofi-nccl/install/lib/libnccl-ofi-tuner.so",
         "WANDB_API_KEY": wandb_key,
         "HF_TOKEN": hf_token,
+        "TORCH_NCCL_AVOID_RECORD_STREAMS": "1",
+        "NCCL_NVLS_ENABLE": "0",
+        "NVTE_DP_AMAX_REDUCE_INTERVAL": "0",
+        "NVTE_ASYNC_AMAX_REDUCTION": "1",
+        "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True",
+        "TOKENIZERS_PARALLELISM": "False",
+        "TRANSFORMERS_OFFLINE": "1",
+        "HF_HOME": "/nemo-workspace/pagaray/hf_cache",
     }
     if custom_env_vars:
         env_vars.update(custom_env_vars)
