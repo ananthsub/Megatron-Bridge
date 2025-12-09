@@ -565,7 +565,7 @@ def parse_cli_args():
         type=str,
         help=f"Directory for logging experiment results. Defaults to {get_nemorun_home()} or NEMORUN_HOME envvar",
         required=False,
-        default=get_nemorun_home(),
+        default=None,
     )
 
     parser.add_argument(

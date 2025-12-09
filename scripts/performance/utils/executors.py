@@ -14,6 +14,7 @@
 
 import os
 import sys
+import logging
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -24,6 +25,7 @@ from nemo_run.core.execution.launcher import SlurmTemplate
 
 DEFAULT_NEMO_CACHE_HOME = Path.home() / ".cache" / "nemo"
 DEFAULT_NEMO_HOME = os.getenv("NEMO_HOME", DEFAULT_NEMO_CACHE_HOME)
+logger = logging.getLogger(__name__)
 
 # NOTE: If you update this template,
 # PLEASE test it by submitting a job to GPU/node/cluster and verifying the sbatch and bash scripts.
@@ -77,6 +79,7 @@ def slurm_executor(
                 #SBATCH --nodelist=node001,node002
                 #SBATCH --constraint=gpu
     """
+    logger
     custom_bash_cmds = [] if custom_bash_cmds is None else custom_bash_cmds
     mounts = []
     # Explicitly request GPU resources to ensure proper allocation
@@ -86,8 +89,11 @@ def slurm_executor(
         "--no-container-mount-home",
     ]
 
-    if log_dir != get_nemorun_home():
+    if log_dir is not None:
         set_nemorun_home(log_dir)
+    else:
+        if os.environ.get("NEMORUN_HOME") is None:
+            logger.warning(f"Logs will be written to {get_nemorun_home()}, which is probably not desired.  export NEMORUN_HOME in your shell environment or use the --log_dir argument")
 
     if wandb_key is not None:
         PERF_ENV_VARS["WANDB_API_KEY"] = wandb_key
@@ -128,7 +134,7 @@ def slurm_executor(
     executor = run.SlurmExecutor(
         account=account,
         partition=partition,
-        tunnel=run.LocalTunnel(job_dir=os.path.join(log_dir, "experiments")),
+        tunnel=run.LocalTunnel(job_dir=os.path.join(get_nemorun_home(), "experiments")),
         nodes=nodes,
         ntasks_per_node=num_gpus_per_node,
         container_image=container_image,

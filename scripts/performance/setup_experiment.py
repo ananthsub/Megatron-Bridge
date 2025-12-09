@@ -361,7 +361,7 @@ def main(
                 name=exp_name,
             )
             if dryrun:
-                print("dryrun requested: exiting")
+                logger.info("dryrun requested: exiting")
                 return
 
             job_dir, job_status = get_job_dir_and_status_from_run(exp_name)
@@ -452,7 +452,7 @@ if __name__ == "__main__":
     # probably better to use parser.parse_args() and make unknowns an error,
     # but for now we'll just issue a warning.
     if unknown_args:
-        print(f"WARNING: Unrecognized arguments: {' '.join(unknown_args)}")
+        logger.warning(f"Ignoring unrecognized arguments: {' '.join(unknown_args)}")
 
     args.model_recipe_name = (
         f"{args.model_recipe_name}_pretrain_config"
