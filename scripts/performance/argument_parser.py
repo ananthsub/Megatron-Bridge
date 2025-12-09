@@ -369,6 +369,13 @@ def parse_cli_args():
         default=[],
     )
     slurm_args.add_argument(
+        "--gres",
+        type=str,
+        help="Slurm generic resources to request (e.g., 'gpu:4').",
+        required=False,
+        default=None,
+    )
+    slurm_args.add_argument(
         "--additional_slurm_params",
         type=parse_additional_slurm_params,
         help="Additional SLURM parameters as key=value pairs. "
