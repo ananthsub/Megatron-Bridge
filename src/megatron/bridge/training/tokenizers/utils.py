@@ -22,7 +22,7 @@ MEGATRON_TOKENIZERS = ["BertWordPieceLowerCase", "BertWordPieceCase", "GPT2BPETo
 SP_TOKENIZERS = ["SentencePieceTokenizer", "GPTSentencePieceTokenizer", "Llama2Tokenizer"]
 
 
-def build_tokenizer(config: TokenizerConfig) -> MegatronTokenizer:
+def build_new_tokenizer(config: TokenizerConfig) -> MegatronTokenizer:
     """Initialize tokenizer from megatron.core.tokenizers based on the provided configuration.
 
     Args:

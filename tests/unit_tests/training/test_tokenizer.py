@@ -17,7 +17,7 @@ from unittest.mock import patch
 import pytest
 
 from megatron.bridge.training.tokenizers.config import TokenizerConfig
-from megatron.bridge.training.tokenizers.utils import build_tokenizer
+from megatron.bridge.training.tokenizers.utils import build_new_tokenizer
 
 
 class TestTokenizers:
@@ -30,7 +30,7 @@ class TestTokenizers:
         )
 
         # Execute
-        tokenizer = build_tokenizer(config)
+        tokenizer = build_new_tokenizer(config)
 
         # Verify
         assert tokenizer.library == "null"
@@ -52,7 +52,7 @@ class TestTokenizers:
         )
 
         # Execute
-        tokenizer = build_tokenizer(config)
+        tokenizer = build_new_tokenizer(config)
 
         # Verify
         assert tokenizer.library == "megatron"
@@ -72,7 +72,7 @@ class TestTokenizers:
         )
 
         # Execute
-        tokenizer = build_tokenizer(config)
+        tokenizer = build_new_tokenizer(config)
 
         # Verify
         assert tokenizer.library == "huggingface"
@@ -94,7 +94,7 @@ class TestTokenizers:
         )
 
         # Execute
-        tokenizer = build_tokenizer(config)
+        tokenizer = build_new_tokenizer(config)
 
         # Verify
         assert tokenizer.library == "sentencepiece"
@@ -113,7 +113,7 @@ class TestTokenizers:
         )
 
         # Execute
-        tokenizer = build_tokenizer(config)
+        tokenizer = build_new_tokenizer(config)
 
         # Verify
         assert tokenizer.library == "tiktoken"
