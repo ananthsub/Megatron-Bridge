@@ -29,9 +29,9 @@ from typing import Any, Callable, Optional, Pattern, Type
 import numpy as np
 import torch
 from megatron.core.msc_utils import MultiStorageClientFeature
+from megatron.core.tokenizers import MegatronTokenizer
 from torch.utils.data import Dataset
 
-from megatron.bridge.training.tokenizers.tokenizer import MegatronTokenizer
 from megatron.bridge.utils.common_utils import get_rank_safe
 
 
@@ -932,10 +932,13 @@ def _chat_preprocess(source: dict, tokenizer: MegatronTokenizer, tool_schemas: O
     else:
         tools = tool_schemas
 
-    # assistant mask only works if chat template has generation keyword
-    template_has_generation_kwd = GENERATION_REGEX.search(tokenizer._tokenizer.chat_template) is not None
+    if getattr(tokenizer, "legacy", False):
+        tokenizer = tokenizer._tokenizer
 
-    tokenized_chat = tokenizer._tokenizer.apply_chat_template(
+    # assistant mask only works if chat template has generation keyword
+    template_has_generation_kwd = GENERATION_REGEX.search(tokenizer.chat_template) is not None
+
+    tokenized_chat = tokenizer.apply_chat_template(
         chat,
         tools=tools,
         tokenize=True,
