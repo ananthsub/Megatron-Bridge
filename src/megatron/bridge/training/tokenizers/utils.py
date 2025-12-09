@@ -50,11 +50,13 @@ def build_new_tokenizer(config: TokenizerConfig) -> MegatronTokenizer:
     elif config.tokenizer_type in SP_TOKENIZERS:
         tokenizer_library = "sentencepiece"
         tokenizer_path = config.tokenizer_model
+        kwargs["chat_template"] = config.chat_template
         kwargs["special_tokens"] = config.special_tokens
         kwargs.update(config.sp_tokenizer_kwargs)
     elif config.tokenizer_type == "TikTokenizer":
         tokenizer_library = "tiktoken"
         tokenizer_path = config.tokenizer_model
+        kwargs["chat_template"] = config.chat_template
         if config.tiktoken_pattern:
             kwargs["pattern"] = config.tiktoken_pattern
         if config.vocab_size:
@@ -65,6 +67,7 @@ def build_new_tokenizer(config: TokenizerConfig) -> MegatronTokenizer:
     elif config.tokenizer_type == "HuggingFaceTokenizer":
         tokenizer_library = "huggingface"
         tokenizer_path = config.tokenizer_model
+        kwargs["chat_template"] = config.chat_template
         kwargs["vocab_file"] = config.vocab_file
         kwargs["merges_file"] = config.merge_file
         kwargs["additional_special_tokens"] = config.special_tokens if config.special_tokens else []
