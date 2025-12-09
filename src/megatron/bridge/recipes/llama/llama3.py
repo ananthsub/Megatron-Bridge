@@ -580,10 +580,9 @@ def _llama3_common(
             log_timers_to_tensorboard=True,
         ),
         tokenizer=TokenizerConfig(
-            tokenizer_type="SentencePieceTokenizer", #"NullTokenizer" if use_null_tokenizer else "HuggingFaceTokenizer",
-            tokenizer_model="/home/data/llama/tokenizer.model", #hf_path if not use_null_tokenizer else None,
-            #legacy_tokenizer=True,
-            #vocab_size=DEFAULT_NULL_TOKENIZER_VOCAB_SIZE if use_null_tokenizer else None,
+            tokenizer_type="NullTokenizer" if use_null_tokenizer else "HuggingFaceTokenizer",
+            tokenizer_model=hf_path if not use_null_tokenizer else None,
+            vocab_size=DEFAULT_NULL_TOKENIZER_VOCAB_SIZE if use_null_tokenizer else None,
         ),
         checkpoint=CheckpointConfig(
             save_interval=save_interval,

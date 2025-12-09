@@ -51,11 +51,11 @@ def main() -> None:
     # config.data.data_path = "/path/to/your/dataset"
 
     # Adjust batch sizes for your GPU memory:
-    config.train.global_batch_size = 5
-    config.train.micro_batch_size = 1
+    # config.train.global_batch_size = 256
+    # config.train.micro_batch_size = 2
 
     # Change checkpoint save frequency:
-    config.train.save_interval = 5
+    # config.train.save_interval = 500
 
     # Start pretraining
     pretrain(config=config, forward_step_func=forward_step)
