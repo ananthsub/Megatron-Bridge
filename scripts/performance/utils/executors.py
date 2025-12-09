@@ -79,7 +79,6 @@ def slurm_executor(
                 #SBATCH --nodelist=node001,node002
                 #SBATCH --constraint=gpu
     """
-    logger
     custom_bash_cmds = [] if custom_bash_cmds is None else custom_bash_cmds
     mounts = []
     # Explicitly request GPU resources to ensure proper allocation
