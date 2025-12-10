@@ -23,7 +23,7 @@ from megatron.bridge.training.comm_overlap import (
 )
 from megatron.bridge.training.config import ConfigContainer
 
-from . import workload_base_configs as base_cfgs
+from . import llama3_workload_base_configs as base_cfgs
 
 
 logger = logging.getLogger(__name__)
