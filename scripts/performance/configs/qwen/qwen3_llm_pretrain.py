@@ -79,7 +79,6 @@ def set_qwen3_common_configs(cfg: ConfigContainer) -> None:
 def set_qwen3_next_common_configs(cfg: ConfigContainer) -> None:
     """Set common performance configurations for all Qwen3 next configs."""
     cfg.model.bias_activation_fusion = True
-    cfg.model.recompute_granularity = None
     cfg.model.recompute_method = None
     cfg.model.recompute_num_layers = None
     cfg.model.moe_router_fusion = True
