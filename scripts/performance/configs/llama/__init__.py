@@ -10,8 +10,10 @@ if HAVE_MEGATRON_BRIDGE:
         llama3_8b_sft_config_gb200,
         llama3_8b_sft_config_h100,
         llama3_70b_lora_config_gb200,
+        llama3_70b_lora_config_gb300,
         llama3_70b_lora_config_h100,
         llama3_70b_sft_config_gb200,
+        llama3_70b_sft_config_gb300,
         llama3_70b_sft_config_h100,
     )
     from .llama3_llm_pretrain import (
@@ -55,6 +57,9 @@ from .llama3_workload_base_configs import (
     LLAMA3_70B_LORA_CONFIG_GB200_BF16,
     LLAMA3_70B_LORA_CONFIG_GB200_FP8_CS,
     LLAMA3_70B_LORA_CONFIG_GB200_FP8_MX,
+    LLAMA3_70B_LORA_CONFIG_GB300_BF16,
+    LLAMA3_70B_LORA_CONFIG_GB300_FP8_CS,
+    LLAMA3_70B_LORA_CONFIG_GB300_FP8_MX,
     LLAMA3_70B_LORA_CONFIG_H100_BF16,
     LLAMA3_70B_LORA_CONFIG_H100_FP8_CS,
     LLAMA3_70B_LORA_CONFIG_H100_FP8_MX,
@@ -75,6 +80,9 @@ from .llama3_workload_base_configs import (
     LLAMA3_70B_SFT_CONFIG_GB200_BF16,
     LLAMA3_70B_SFT_CONFIG_GB200_FP8_CS,
     LLAMA3_70B_SFT_CONFIG_GB200_FP8_MX,
+    LLAMA3_70B_SFT_CONFIG_GB300_BF16,
+    LLAMA3_70B_SFT_CONFIG_GB300_FP8_CS,
+    LLAMA3_70B_SFT_CONFIG_GB300_FP8_MX,
     LLAMA3_70B_SFT_CONFIG_H100_BF16,
     LLAMA3_70B_SFT_CONFIG_H100_FP8_CS,
     LLAMA3_70B_SFT_CONFIG_H100_FP8_MX,
@@ -158,6 +166,12 @@ __all__ = [
     "LLAMA3_70B_LORA_CONFIG_H100_BF16",
     "LLAMA3_70B_LORA_CONFIG_H100_FP8_CS",
     "LLAMA3_70B_LORA_CONFIG_H100_FP8_MX",
+    "LLAMA3_70B_SFT_CONFIG_GB300_BF16",
+    "LLAMA3_70B_SFT_CONFIG_GB300_FP8_CS",
+    "LLAMA3_70B_SFT_CONFIG_GB300_FP8_MX",
+    "LLAMA3_70B_LORA_CONFIG_GB300_BF16",
+    "LLAMA3_70B_LORA_CONFIG_GB300_FP8_CS",
+    "LLAMA3_70B_LORA_CONFIG_GB300_FP8_MX",
 ]
 
 if HAVE_MEGATRON_BRIDGE:
@@ -176,7 +190,9 @@ if HAVE_MEGATRON_BRIDGE:
             "llama3_70b_sft_config_gb200",
             "llama3_70b_sft_config_h100",
             "llama3_70b_lora_config_gb200",
+            "llama3_70b_lora_config_gb300",
             "llama3_70b_lora_config_h100",
+            "llama3_70b_sft_config_gb300",
             "llama31_405b_pretrain_config_gb300",
             "llama31_405b_pretrain_config_gb200",
             "llama31_405b_pretrain_config_b200",
