@@ -136,6 +136,7 @@ def build_test_config(
         tokenizer=TokenizerConfig(
             tokenizer_type="NullTokenizer",
             vocab_size=10000,
+            legacy_tokenizer=True,
         ),
         checkpoint=CheckpointConfig(
             save=save_dir,
