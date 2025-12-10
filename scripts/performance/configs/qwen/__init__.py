@@ -15,6 +15,7 @@ if HAVE_MEGATRON_BRIDGE:
         qwen3_235b_a22b_pretrain_config_gb200,
         qwen3_235b_a22b_pretrain_config_gb300,
         qwen3_235b_a22b_pretrain_config_h100,
+        qwen3_next_80b_a3b_pretrain_config_b200,
         qwen3_next_80b_a3b_pretrain_config_gb200,
         qwen3_next_80b_a3b_pretrain_config_gb300,
         qwen3_next_80b_a3b_pretrain_config_h100,
@@ -97,5 +98,6 @@ if HAVE_MEGATRON_BRIDGE:
             "qwen3_next_80b_a3b_pretrain_config_gb300",
             "qwen3_next_80b_a3b_pretrain_config_gb200",
             "qwen3_next_80b_a3b_pretrain_config_h100",
+            "qwen3_next_80b_a3b_pretrain_config_b200",
         ]
     )
