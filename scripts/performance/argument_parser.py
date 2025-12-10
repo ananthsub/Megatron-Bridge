@@ -287,8 +287,9 @@ def parse_cli_args():
     parallelism_args.add_argument(
         "-vp",
         "--virtual_pipeline_model_parallel_size",
-        type=int,
+        type=lambda x: None if x == "None" else int(x),
         help="Number of virtual blocks per pipeline model parallel rank is the virtual model parallel size.",
+        default=-1,
     )
     parallelism_args.add_argument(
         "-ep",
@@ -366,6 +367,13 @@ def parse_cli_args():
         type=list_of_strings,
         help="Comma separated string of srun arguments",
         default=[],
+    )
+    slurm_args.add_argument(
+        "--gres",
+        type=str,
+        help="Slurm generic resources to request (e.g., 'gpu:4').",
+        required=False,
+        default=None,
     )
     slurm_args.add_argument(
         "--additional_slurm_params",
