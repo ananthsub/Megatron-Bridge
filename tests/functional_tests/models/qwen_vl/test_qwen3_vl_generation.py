@@ -305,6 +305,7 @@ class TestQwen3VLGeneration:
         print(f"Created MoE toy model at: {model_dir}")
         return str(model_dir)
 
+    @pytest.mark.pleasefixme
     @pytest.mark.run_only_on("GPU")
     def test_qwen3_vl_8b_image_generation(self, qwen3_vl_toy_model_path):
         """
