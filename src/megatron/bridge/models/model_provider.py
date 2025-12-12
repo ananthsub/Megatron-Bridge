@@ -689,6 +689,7 @@ def _ddp_wrap(
     #  this side-stream may be nested if being called from within the get_model function, but it
     #  is here in case someone wants to use this directly outside of get_model.
     ddp_stream = torch.cuda.Stream()
+    ddp_stream.wait_stream(torch.cuda.current_stream())
     with torch.cuda.stream(ddp_stream):
         model = [
             DP(
