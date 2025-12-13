@@ -130,9 +130,8 @@ class TestChatPreprocess:
         """Test chat preprocessing when template lacks generation keyword."""
         mock_tokenizer = MagicMock()
         mock_hf_tokenizer = MagicMock()
-        mock_tokenizer = mock_hf_tokenizer
+        mock_tokenizer._tokenizer = mock_hf_tokenizer
         mock_tokenizer.eos_id = 2
-        mock_tokenizer.legacy = False
 
         # Chat template without generation keyword
         mock_hf_tokenizer.chat_template = "{{ messages }}"
@@ -151,9 +150,8 @@ class TestChatPreprocess:
         """Test that EOS token is added if missing."""
         mock_tokenizer = MagicMock()
         mock_hf_tokenizer = MagicMock()
-        mock_tokenizer = mock_hf_tokenizer
+        mock_tokenizer._tokenizer = mock_hf_tokenizer
         mock_tokenizer.eos_id = 999
-        mock_tokenizer.legacy = False
 
         mock_hf_tokenizer.chat_template = "{{ messages }}"
         mock_hf_tokenizer.apply_chat_template.return_value = {
@@ -478,7 +476,6 @@ class TestTokenizerSpaceSensitive:
         config = TokenizerConfig(
             tokenizer_type="HuggingFaceTokenizer",
             tokenizer_model="gpt2",
-            legacy_tokenizer=True,
         )
 
         tokenizer = build_tokenizer(config)
@@ -500,7 +497,6 @@ class TestTokenizerSpaceSensitive:
         config = TokenizerConfig(
             tokenizer_type="SentencePieceTokenizer",
             tokenizer_model="tokenizer.model",
-            legacy_tokenizer=True,
         )
 
         tokenizer = build_tokenizer(config)
@@ -936,9 +932,8 @@ class TestContextAnswerSplit:
         """Test that context/answer are split correctly based on mask."""
         mock_tokenizer = MagicMock()
         mock_hf_tokenizer = MagicMock()
-        mock_tokenizer = mock_hf_tokenizer
+        mock_tokenizer._tokenizer = mock_hf_tokenizer
         mock_tokenizer.eos_id = 2
-        mock_tokenizer.legacy = False
 
         # Mask with 0s (context) and 1s (answer)
         mock_hf_tokenizer.chat_template = "{% generation %}"  # Has generation keyword
