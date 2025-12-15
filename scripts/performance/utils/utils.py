@@ -123,5 +123,13 @@ def get_library_recipe(model_family_name: str, model_recipe_name: str, train_tas
     """Get the library recipe."""
     family_pkg_path = f"megatron.bridge.recipes.{model_family_name}"
     family_pkg = importlib.import_module(family_pkg_path)
-    recipe_builder = getattr(family_pkg, f"{model_recipe_name}_{train_task}_config")
+
+    if model_recipe_name == "deepseek_v3_32nodes" and train_task == "pretrain":
+        model_recipe_name = "deepseek_v3_pretrain_config_32nodes"
+    elif train_task == "pretrain":
+        model_recipe_name = f"{model_recipe_name}_{train_task}_config"
+    else:
+        model_recipe_name = f"{model_recipe_name}_finetune_config"
+
+    recipe_builder = getattr(family_pkg, model_recipe_name)
     return recipe_builder(dir="/nemo_run/", name=wandb_experiment_name)
