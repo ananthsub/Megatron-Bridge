@@ -116,7 +116,10 @@ def get_perf_optimized_recipe(
     except AttributeError as err:
         raise ValueError(f"Failed to get recipe builder '{recipe_name}' from module '{module_name}'") from err
 
-    return recipe_builder(precision=compute_dtype, mock=mock)
+    if train_task == "pretrain":
+        return recipe_builder(precision=compute_dtype, mock=mock)
+    else:
+        return recipe_builder(precision=compute_dtype)
 
 
 def get_library_recipe(model_family_name: str, model_recipe_name: str, train_task: str, wandb_experiment_name: str):
