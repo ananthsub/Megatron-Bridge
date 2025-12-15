@@ -215,10 +215,15 @@ def main(
     dgxc_pvc_mount_path: str,
 ):
     """Sets up the experiment and runs it."""
-    if model_family_name in ["qwen3"] and model_recipe_name in [
-        "qwen3_30b_a3b_pretrain_config",
-        "qwen3_235b_a22b_pretrain_config",
-    ]:
+    if (
+        model_family_name in ["qwen3"]
+        and model_recipe_name
+        in [
+            "qwen3_30b_a3b",
+            "qwen3_235b_a22b",
+        ]
+        and task == "pretrain"
+    ):
         assert hf_token is not None, "HF token is required for Qwen3 tokenizer. NullTokenizer to be used soon."
 
     if wandb_key is not None:
@@ -231,7 +236,7 @@ def main(
         exp_name = (
             wandb_experiment_name
             if wandb_experiment_name is not None
-            else f"{model_recipe_name.replace('_pretrain_config', '')}_{task}_{num_gpus}gpu_{gpu}"
+            else f"{model_recipe_name}_{task}_{num_gpus}gpu_{gpu}"
         )
 
     else:
@@ -239,7 +244,7 @@ def main(
         exp_name = (
             wandb_experiment_name
             if wandb_experiment_name is not None
-            else f"{model_recipe_name.replace('_pretrain_config', '')}_{task}_{num_gpus}gpu_{gpu}_{compute_dtype}"
+            else f"{model_recipe_name}_{task}_{num_gpus}gpu_{gpu}_{compute_dtype}"
         )
 
     if pretrained_checkpoint is not None:
@@ -309,7 +314,7 @@ def main(
                 model_recipe_name=model_recipe_name,
                 gpu=gpu,
                 compute_dtype=compute_dtype,
-                task=task,
+                train_task=task,
             )
         )
 
@@ -458,12 +463,6 @@ if __name__ == "__main__":
     # but for now we'll just issue a warning.
     if unknown_args:
         logger.warning(f"Ignoring unrecognized arguments: {' '.join(unknown_args)}")
-
-    args.model_recipe_name = (
-        f"{args.model_recipe_name}_pretrain_config"
-        if args.task == "pretrain"
-        else f"{args.model_recipe_name}_finetune_config"
-    )
 
     main(
         use_recipes=args.use_recipes,
