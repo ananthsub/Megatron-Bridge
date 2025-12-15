@@ -76,7 +76,7 @@ def build_new_tokenizer(config: TokenizerConfig) -> MegatronTokenizer:
         tokenizer_library = "null"
         metadata = {"library": tokenizer_library}
         if config.vocab_size:
-            kwargs["vocab_size"] = config.vocab_size
+            kwargs["vocab_size"] = config.vocab_size - 1
         tokenizer = MegatronTokenizer.from_pretrained(metadata_path=metadata, **kwargs)
 
         return tokenizer
