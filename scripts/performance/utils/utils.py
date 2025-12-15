@@ -75,7 +75,7 @@ def get_workload_base_config(
     task: str,
 ) -> Dict[str, int]:
     """Get the workload base config for a given model, size, GPU, compute dtype, and FP8 recipe."""
-    workload_base_config_name = f"{model_recipe_name}_{gpu}_{compute_dtype}"
+    workload_base_config_name = f"{model_recipe_name}_{task}_config_{gpu}_{compute_dtype}"
     workload_base_config_name = workload_base_config_name.upper()
 
     module_name = f"configs.{model_family_name}"
@@ -97,6 +97,7 @@ def get_workload_base_config(
 def get_perf_optimized_recipe(
     model_family_name: str,
     model_recipe_name: str,
+    train_task: str,
     gpu: str,
     compute_dtype: str,
     mock: bool = True,
@@ -109,18 +110,18 @@ def get_perf_optimized_recipe(
     except ModuleNotFoundError as exc:
         raise ValueError(f"Failed to import configuration module '{module_name}'") from exc
 
-    recipe_name = f"{model_recipe_name}_{gpu}"
+    recipe_name = f"{model_recipe_name}_{train_task}_config_{gpu}"
     try:
-        recipe_builder = getattr(module, f"{model_recipe_name}_{gpu}")
+        recipe_builder = getattr(module, recipe_name)
     except AttributeError as err:
         raise ValueError(f"Failed to get recipe builder '{recipe_name}' from module '{module_name}'") from err
 
     return recipe_builder(precision=compute_dtype, mock=mock)
 
 
-def get_library_recipe(model_family_name: str, model_recipe_name: str, wandb_experiment_name: str):
+def get_library_recipe(model_family_name: str, model_recipe_name: str, train_task: str, wandb_experiment_name: str):
     """Get the library recipe."""
     family_pkg_path = f"megatron.bridge.recipes.{model_family_name}"
     family_pkg = importlib.import_module(family_pkg_path)
-    recipe_builder = getattr(family_pkg, model_recipe_name)
+    recipe_builder = getattr(family_pkg, f"{model_recipe_name}_{train_task}_config")
     return recipe_builder(dir="/nemo_run/", name=wandb_experiment_name)
