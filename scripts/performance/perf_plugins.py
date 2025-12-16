@@ -292,10 +292,20 @@ class PerfEnvPlugin(Plugin):
         executor: "run.Executor",
         moe_flex_dispatcher_backend: str,
         gpu: str,
+        model_recipe_name: str,
+        model_family_name: str,
     ):
         if moe_flex_dispatcher_backend == "hybridep" and gpu in ["gb200", "gb300"]:
             executor.env_vars["NVLINK_DOMAIN_SIZE"] = "72"
             executor.env_vars["NUM_OF_HYBRID_EP_RANKS_PER_NVLINK_DOMAIN"] = "8"
+            executor.env_vars["USE_MNNVL"] = "1"
+        if (
+            moe_flex_dispatcher_backend == "hybridep"
+            and (gpu == "gb300" and model_recipe_name == "qwen3_235b_a22b")
+            or (gpu == "gb300" and model_recipe_name == "deepseek_v3")
+        ):
+            executor.env_vars["NVLINK_DOMAIN_SIZE"] = "72"
+            executor.env_vars["NUM_OF_HYBRID_EP_RANKS_PER_NVLINK_DOMAIN"] = "64"
             executor.env_vars["USE_MNNVL"] = "1"
 
     def _set_nccl_pp_comm_chunksize(
@@ -396,7 +406,9 @@ class PerfEnvPlugin(Plugin):
         )
 
         # Set NVL domain size when using HybridEP
-        self._set_nvl_domain_size(task, executor, moe_flex_dispatcher_backend, self.gpu)
+        self._set_nvl_domain_size(
+            task, executor, moe_flex_dispatcher_backend, self.gpu, self.model_family_name, self.model_recipe_name
+        )
 
         # Set the chunk size of P2P communications
         nccl_pp_comm_chunksize = (
