@@ -195,6 +195,7 @@ class PerfEnvPlugin(Plugin):
     tp_size: int = 1
     cp_size: int = 1
     pp_size: int = 1
+    ep_size: int = 1
     script_args_converter_fn: Optional[Callable[[PerfEnvPluginScriptArgs], List[str]]] = None
     moe_a2a_overlap: bool = False
     model_family_name: str
@@ -292,20 +293,12 @@ class PerfEnvPlugin(Plugin):
         executor: "run.Executor",
         moe_flex_dispatcher_backend: str,
         gpu: str,
-        model_recipe_name: str,
-        model_family_name: str,
+        ep_size: int,
     ):
-        if moe_flex_dispatcher_backend == "hybridep" and gpu in ["gb200", "gb300"]:
+        assert ep_size <= 72, "ep_size must be less than or equal to 72"
+        if moe_flex_dispatcher_backend == "hybridep":
             executor.env_vars["NVLINK_DOMAIN_SIZE"] = "72"
-            executor.env_vars["NUM_OF_HYBRID_EP_RANKS_PER_NVLINK_DOMAIN"] = "8"
-            executor.env_vars["USE_MNNVL"] = "1"
-        if (
-            moe_flex_dispatcher_backend == "hybridep"
-            and (gpu == "gb300" and model_recipe_name == "qwen3_235b_a22b")
-            or (gpu == "gb300" and model_recipe_name == "deepseek_v3")
-        ):
-            executor.env_vars["NVLINK_DOMAIN_SIZE"] = "72"
-            executor.env_vars["NUM_OF_HYBRID_EP_RANKS_PER_NVLINK_DOMAIN"] = "64"
+            executor.env_vars["NUM_OF_HYBRID_EP_RANKS_PER_NVLINK_DOMAIN"] = str(ep_size)
             executor.env_vars["USE_MNNVL"] = "1"
 
     def _set_nccl_pp_comm_chunksize(
@@ -381,6 +374,7 @@ class PerfEnvPlugin(Plugin):
         tp_size = self.tp_size if self.tp_size is not None else workload_base_config.tensor_model_parallel_size
         pp_size = self.pp_size if self.pp_size is not None else workload_base_config.pipeline_model_parallel_size
         cp_size = self.cp_size if self.cp_size is not None else workload_base_config.context_parallel_size
+        ep_size = self.ep_size if self.ep_size is not None else workload_base_config.ep_size
 
         # Force program order kernel launch for TP, CP overlap
         moe_flex_dispatcher_backend = getattr(workload_base_config, "moe_flex_dispatcher_backend", None)
@@ -407,7 +401,11 @@ class PerfEnvPlugin(Plugin):
 
         # Set NVL domain size when using HybridEP
         self._set_nvl_domain_size(
-            task, executor, moe_flex_dispatcher_backend, self.gpu, self.model_family_name, self.model_recipe_name
+            task,
+            executor,
+            moe_flex_dispatcher_backend,
+            self.gpu,
+            ep_size,
         )
 
         # Set the chunk size of P2P communications
