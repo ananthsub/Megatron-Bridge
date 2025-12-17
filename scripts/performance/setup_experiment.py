@@ -327,17 +327,17 @@ def main(
             )
         )
 
-    # if use_recipes:
-    #     plugins.append(
-    #         FaultTolerancePlugin(
-    #             enable_ft_package=True,
-    #             calc_ft_timeouts=True,
-    #             num_in_job_restarts=3,
-    #             num_job_retries_on_failure=2,
-    #             initial_rank_heartbeat_timeout=1800,
-    #             rank_heartbeat_timeout=300,
-    #         )
-    #     )
+    if use_recipes:
+        plugins.append(
+            FaultTolerancePlugin(
+                enable_ft_package=True,
+                calc_ft_timeouts=True,
+                num_in_job_restarts=3,
+                num_job_retries_on_failure=2,
+                initial_rank_heartbeat_timeout=1800,
+                rank_heartbeat_timeout=300,
+            )
+        )
 
     nemorun_script = run.Script(
         path=str(run_script_path),
