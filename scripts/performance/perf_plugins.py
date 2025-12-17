@@ -295,8 +295,8 @@ class PerfEnvPlugin(Plugin):
         gpu: str,
         ep_size: int,
     ):
-        assert ep_size <= 72, "ep_size must be less than or equal to 72"
         if moe_flex_dispatcher_backend == "hybridep":
+            assert ep_size <= 72, "ep_size must be less than or equal to 72"
             executor.env_vars["NVLINK_DOMAIN_SIZE"] = "72"
             executor.env_vars["NUM_OF_HYBRID_EP_RANKS_PER_NVLINK_DOMAIN"] = str(ep_size)
             executor.env_vars["USE_MNNVL"] = "1"
