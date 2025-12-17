@@ -34,7 +34,7 @@ class TestTokenizers:
 
         # Verify
         assert tokenizer.library == "null"
-        assert tokenizer.vocab_size == (vocab_size + 1)
+        assert tokenizer.vocab_size == vocab_size
 
     @patch("megatron.core.tokenizers.text.libraries.MegatronHFTokenizer")
     @pytest.mark.parametrize("use_fast", [True])
