@@ -24,6 +24,10 @@ on:
         required: true
         type: boolean
         default: true
+      version-number:
+        description: Version number to release this as (use `latest` for main branch)
+        required: true
+        type: string
 
 jobs:
   build-docs:
@@ -36,7 +40,7 @@ jobs:
     needs: [build-docs]
     env:
       DOCSET: 'test-publish-docs' # For testing only
-      VERSION: '1.0.0'
+      VERSION: '${{ inputs.version-number }}'
     steps:
       - uses: actions/checkout@v6
         with:
