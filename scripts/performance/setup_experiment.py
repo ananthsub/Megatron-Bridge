@@ -418,6 +418,7 @@ def main(
             log_paths = sorted(
                 list(glob.glob(f"{get_nemorun_home()}/experiments/{exp_name}/{exp_name}_*/{exp_name}/log-*_0.out"))
             )
+            print(log_paths)
 
             if not is_long_convergence_run:
                 log_paths = [log_paths[-1]]
