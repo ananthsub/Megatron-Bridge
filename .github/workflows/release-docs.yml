@@ -39,7 +39,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-docs]
     env:
-      DOCSET: 'test-publish-docs' # For testing only
       VERSION: '${{ inputs.version-number }}'
     steps:
       - uses: actions/checkout@v6
