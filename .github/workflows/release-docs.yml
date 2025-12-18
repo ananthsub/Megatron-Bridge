@@ -53,7 +53,7 @@ jobs:
           artifacts-name: docs-html
           artifacts-path: _build/html
           emails-csv: 'mmckiernan@nvidia.com,aschilling@nvidia.com'
-          request-name: test-publish-docs-${{ github.run_id }}
+          request-name: megatron-bridge-publish-docs-${{ github.run_id }}
           run-on-version-tag-only: false
           aws-region: us-east-1
           aws-role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN }}
