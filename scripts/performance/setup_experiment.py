@@ -393,7 +393,7 @@ def main(
                 is_testing_passed = True
                 break
 
-            log_file_paths = [str(Path(f"{job_dir}/log-*_0.out"))]
+            log_file_paths = list(Path(f"{job_dir}").glob("log-*_0.out"))
             ensure_logs_where_written(log_file_paths)
 
             is_finished_experiment = (
