@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-name: Release docs'
+name: Release docs
 on:
   workflow_dispatch:
     inputs:
@@ -28,6 +28,15 @@ on:
         description: Version number to release this as (use `latest` for main branch)
         required: true
         type: string
+      notify-emails:
+        description: Email addresses to send the notification to. Format as "me@me.com,you@you.com".
+        required: true
+        type: string
+      aws-region:
+        description: AWS region
+        required: false
+        type: string
+        default: us-east-1
 
 jobs:
   build-docs:
@@ -52,10 +61,10 @@ jobs:
           dry-run: ${{ inputs.dry-run }}
           artifacts-name: docs-html
           artifacts-path: _build/html
-          emails-csv: 'mmckiernan@nvidia.com,aschilling@nvidia.com'
+          emails-csv: ${{ inputs.notify-emails }}
           request-name: megatron-bridge-publish-docs-${{ github.run_id }}
           run-on-version-tag-only: false
-          aws-region: us-east-1
+          aws-region: ${{ inputs.aws-region }}
           aws-role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
