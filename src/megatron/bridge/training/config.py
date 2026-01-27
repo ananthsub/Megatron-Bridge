@@ -1455,6 +1455,7 @@ class ConfigContainer(Container):
                 "check_for_nan_in_loss must be disabled when using full_iteration CUDA graph. "
                 "Set rerun_state_machine.check_for_nan_in_loss=False."
             )
+        _validate_skip_train_settings(self)
 
         if self.dist.use_megatron_fsdp and self.dist.use_torch_fsdp2:
             raise ValueError("Using use_megatron_fsdp and use_torch_fsdp2 at the same time is not supported.")
@@ -1754,6 +1755,7 @@ def _validate_mixed_precision_consistency(config: ConfigContainer) -> None:
             )
 
 
+<<<<<<< HEAD
 def _validate_fine_grained_activation_offloading(config: ConfigContainer) -> None:
     """Validate fine-grained activation offloading configuration.
 
@@ -1788,3 +1790,18 @@ def _validate_fine_grained_activation_offloading(config: ConfigContainer) -> Non
                 "For fine-grained activation offloading with TE >= 2.10.0, "
                 "NVTE_CPU_OFFLOAD_V1 environment variable should be set to 1 to avoid offloading weights."
             )
+=======
+def _validate_skip_train_settings(config: ConfigContainer) -> None:
+    """Validate and apply skip_train settings.
+
+    When skip_train is enabled:
+    1. Automatically disable loading optimizer state from checkpoint to save memory
+    2. Log a warning if load_optim was explicitly set to True
+
+    Args:
+        config: The configuration container to validate and potentially modify.
+    """
+    if config.train.skip_train and config.checkpoint.load_optim:
+        config.checkpoint.load_optim = False
+        print_rank_0("Warning: enabling load_optim=False when skipping training (skip_train=True).")
+>>>>>>> 4c8a752a ([sync] Various quality-of-life improvements in training loop)
