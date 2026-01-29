@@ -126,7 +126,6 @@ def num_floating_point_operations(cfg: ConfigContainer, batch_size: int = 1):
         mamba_num_groups=8,
         mamba_num_heads=128,
         num_attn_heads=32,
-        gqa=True,
         gqa_groups=8,
         kv_channels=None,
         mlp_expansion=4.0,
