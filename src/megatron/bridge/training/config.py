@@ -1416,10 +1416,11 @@ class ConfigContainer(Container):
         - Auto-disables check_for_nan_in_loss (collective ops are skipped)
         - Auto-disables Gloo process groups
         - Validates incompatibility with in-process restart
+        - Validates incompatibility with decentralized process groups
 
         Raises:
             AssertionError: If PyTorch version is < 2.3.0 or moe_token_dispatcher_type is 'flex'.
-            ValueError: If in-process restart is enabled.
+            ValueError: If in-process restart or decentralized process groups are enabled.
         """
         if not self.dist.fake_process_group:
             return
@@ -1432,22 +1433,29 @@ class ConfigContainer(Container):
                 "Fake process group is not supported with flex token dispatcher."
             )
 
-        # Disable NaN check for fake process group (collective ops are skipped)
-        if self.rerun_state_machine.check_for_nan_in_loss:
-            self.rerun_state_machine.check_for_nan_in_loss = False
-            warn_rank_0("check_for_nan_in_loss is set to False for fake process group.")
-
-        # Disable Gloo process groups for fake process group
-        if self.dist.use_gloo_process_groups:
-            self.dist.use_gloo_process_groups = False
-            warn_rank_0("use_gloo_process_groups is set to False for fake process group.")
-
         # Fake process group is incompatible with in-process restart
         if self.inprocess_restart is not None and self.inprocess_restart.enabled:
             raise ValueError(
                 "Fake process group is not compatible with in-process restart. "
                 "Please disable either fake_process_group or inprocess_restart."
             )
+
+        # Fake process group is incompatible with decentralized process groups
+        # (decentralized PGs are created with backend="nccl" which conflicts with fake backend)
+        if self.dist.use_decentralized_pg:
+            raise ValueError(
+                "Fake process group is not compatible with use_decentralized_pg=True. "
+                "Decentralized process groups use NCCL backend which is incompatible with fake backend."
+            )
+
+        # Auto-disable settings with warnings
+        if self.rerun_state_machine.check_for_nan_in_loss:
+            self.rerun_state_machine.check_for_nan_in_loss = False
+            warn_rank_0("check_for_nan_in_loss is set to False for fake process group.")
+
+        if self.dist.use_gloo_process_groups:
+            self.dist.use_gloo_process_groups = False
+            warn_rank_0("use_gloo_process_groups is set to False for fake process group.")
 
     def validate(self) -> None:
         """Performs validation checks on the combined configuration.

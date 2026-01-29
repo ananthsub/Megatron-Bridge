@@ -1464,6 +1464,30 @@ class TestConfigContainerValidation:
         finally:
             restore_get_world_size_safe(og_ws, cfg_mod)
 
+    def test_fake_process_group_incompatible_with_decentralized_pg(self, monkeypatch):
+        """Test that fake_process_group is incompatible with use_decentralized_pg."""
+        gpt_model_cfg = create_test_gpt_config()
+        dist_cfg = create_test_distributed_init_config(
+            fake_process_group=True,
+            use_decentralized_pg=True,
+        )
+
+        container, og_ws, cfg_mod = create_test_config_container(
+            world_size_override=1,
+            model_config=gpt_model_cfg,
+            dist_config=dist_cfg,
+        )
+
+        try:
+            with patch("megatron.bridge.training.config.is_torch_min_version", return_value=True):
+                with pytest.raises(
+                    ValueError,
+                    match="Fake process group is not compatible with use_decentralized_pg=True",
+                ):
+                    container.validate()
+        finally:
+            restore_get_world_size_safe(og_ws, cfg_mod)
+
     def test_fake_process_group_valid_configuration(self, monkeypatch):
         """Test that fake_process_group validation passes with valid configuration."""
         gpt_model_cfg = create_test_gpt_config()
