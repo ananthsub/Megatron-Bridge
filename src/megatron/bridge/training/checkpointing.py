@@ -49,7 +49,7 @@ from megatron.core.optimizer.layer_wise_optimizer import LayerWiseDistributedOpt
 from megatron.core.process_groups_config import ProcessGroupCollection
 from megatron.core.rerun_state_machine import get_rerun_state_machine
 from megatron.core.transformer import MegatronModule
-from megatron.core.utils import unwrap_model
+from megatron.core.utils import get_pg_size, unwrap_model
 from modelopt.torch.opt.plugins import (
     restore_modelopt_state,
     save_modelopt_state,
@@ -393,6 +393,7 @@ def get_rng_state(
     Args:
         data_parallel_random_init: If True, gathers RNG states across data parallel ranks.
         ckpt_format: The checkpoint format being used.
+        pg_collection: Process group collection for accessing parallel ranks/sizes.
 
     Returns:
         For torch_dist: A ShardedObject containing the RNG states, sharded by
@@ -415,19 +416,19 @@ def get_rng_state(
         rng_state_list = [rng_state]
 
     if ckpt_format == "torch_dist":
-        pp_rank = mpu.get_pipeline_model_parallel_rank()
-        pp_size = mpu.get_pipeline_model_parallel_world_size()
-        tp_rank = mpu.get_tensor_model_parallel_rank()
-        tp_size = mpu.get_tensor_model_parallel_world_size()
-        ep_size = mpu.get_expert_model_parallel_world_size()
+        pp_rank = pg_collection.pp.rank()
+        pp_size = pg_collection.pp.size()
+        tp_rank = pg_collection.tp.rank()
+        tp_size = pg_collection.tp.size()
+        ep_size = get_pg_size(pg_collection.ep)
 
         if ep_size > 1:
             # Shard RNG by PP, TP, DP when using expert parallelism.
             # With EP, different EP ranks within the same DP group may have different
             # RNG states for their respective experts, so DP rank must be part of
             # the sharding dimensions rather than replica_id.
-            dp_rank = mpu.get_data_parallel_rank(with_context_parallel=True)
-            dp_size = mpu.get_data_parallel_world_size(with_context_parallel=True)
+            dp_rank = pg_collection.dp_cp.rank()
+            dp_size = pg_collection.dp_cp.size()
             rng_state_list = ShardedObject(
                 "rng_state",
                 rng_state_list,
@@ -441,7 +442,7 @@ def get_rng_state(
                 rng_state_list,
                 (pp_size, tp_size),
                 (pp_rank, tp_rank),
-                replica_id=mpu.get_data_parallel_rank(with_context_parallel=True),
+                replica_id=pg_collection.dp_cp.rank(),
             )
     elif ckpt_format == "fsdp_dtensor":
         pp_rank = pg_collection.pp.rank()
