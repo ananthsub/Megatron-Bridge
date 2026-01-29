@@ -1355,6 +1355,9 @@ class TestConfigContainerValidation:
         try:
             container.validate()  # Should pass without error since offloading is disabled
             assert container.model.fine_grained_activation_offloading is False
+        finally:
+            restore_get_world_size_safe(og_ws, cfg_mod)
+
     def test_fake_process_group_requires_torch_2_3(self, monkeypatch):
         """Test that fake_process_group requires PyTorch >= 2.3.0."""
         gpt_model_cfg = create_test_gpt_config()
