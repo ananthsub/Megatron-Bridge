@@ -387,7 +387,6 @@ def num_floating_point_operations(cfg: ConfigContainer, batch_size: int = 1):
             mamba_num_groups=getattr(cfg.model, "mamba_num_groups", 8),
             mamba_num_heads=getattr(cfg.model, "mamba_num_heads", 128),
             num_attn_heads=cfg.model.num_attention_heads,
-            gqa=getattr(cfg.model, "group_query_attention", True),
             gqa_groups=num_query_groups,
             kv_channels=getattr(cfg.model, "kv_channels", None),
             mlp_expansion=cfg.model.ffn_hidden_size / cfg.model.hidden_size,
