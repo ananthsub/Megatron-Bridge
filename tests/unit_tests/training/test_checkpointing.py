@@ -290,6 +290,95 @@ class TestRNGState:
         assert rng_state["np_rng_state"] == "np_state"
         assert rng_state["rng_tracker_states"] == "tracker_states"
 
+    @patch("megatron.bridge.training.checkpointing.mpu")
+    @patch("megatron.bridge.training.checkpointing.tensor_parallel")
+    @patch("torch.distributed.is_initialized")
+    @patch("torch.cuda.get_rng_state")
+    @patch("torch.get_rng_state")
+    @patch("numpy.random.get_state")
+    @patch("random.getstate")
+    def test_get_rng_state_with_expert_parallelism(
+        self, mock_random, mock_np, mock_torch, mock_cuda, mock_dist_init, mock_tp, mock_mpu
+    ):
+        """Test RNG state collection with Expert Parallelism (EP > 1).
+
+        When EP > 1, RNG state should be sharded by (PP, TP, DP) dimensions
+        with replica_id=0, since different EP ranks may have different RNG states.
+        """
+        # Setup mocks
+        mock_dist_init.return_value = False
+        mock_random.return_value = "random_state"
+        mock_np.return_value = "np_state"
+        mock_torch.return_value = torch.tensor([1, 2, 3])
+        mock_cuda.return_value = torch.tensor([4, 5, 6])
+        mock_tracker = Mock()
+        mock_tracker.get_states.return_value = "tracker_states"
+        mock_tp.get_cuda_rng_tracker.return_value = mock_tracker
+
+        # Configure parallel state with EP > 1
+        mock_mpu.get_pipeline_model_parallel_rank.return_value = 1
+        mock_mpu.get_pipeline_model_parallel_world_size.return_value = 2
+        mock_mpu.get_tensor_model_parallel_rank.return_value = 3
+        mock_mpu.get_tensor_model_parallel_world_size.return_value = 4
+        mock_mpu.get_expert_model_parallel_world_size.return_value = 8  # EP > 1
+        mock_mpu.get_data_parallel_rank.return_value = 5
+        mock_mpu.get_data_parallel_world_size.return_value = 6
+
+        result = get_rng_state(data_parallel_random_init=False)
+
+        # Verify the result is a ShardedObject with correct sharding
+        assert result.key == "rng_state"
+        # Shape should be (pp_size, tp_size, dp_size) when EP > 1
+        assert result.global_shape == (2, 4, 6)
+        # Global offset should include dp_rank
+        assert result.global_offset == (1, 3, 5)
+        # replica_id should be 0 (not dp_rank) when EP > 1
+        assert result.replica_id == 0
+
+    @patch("megatron.bridge.training.checkpointing.mpu")
+    @patch("megatron.bridge.training.checkpointing.tensor_parallel")
+    @patch("torch.distributed.is_initialized")
+    @patch("torch.cuda.get_rng_state")
+    @patch("torch.get_rng_state")
+    @patch("numpy.random.get_state")
+    @patch("random.getstate")
+    def test_get_rng_state_without_expert_parallelism(
+        self, mock_random, mock_np, mock_torch, mock_cuda, mock_dist_init, mock_tp, mock_mpu
+    ):
+        """Test RNG state collection without Expert Parallelism (EP = 1).
+
+        When EP = 1, RNG state should be sharded by (PP, TP) dimensions
+        with replica_id=dp_rank (standard behavior).
+        """
+        # Setup mocks
+        mock_dist_init.return_value = False
+        mock_random.return_value = "random_state"
+        mock_np.return_value = "np_state"
+        mock_torch.return_value = torch.tensor([1, 2, 3])
+        mock_cuda.return_value = torch.tensor([4, 5, 6])
+        mock_tracker = Mock()
+        mock_tracker.get_states.return_value = "tracker_states"
+        mock_tp.get_cuda_rng_tracker.return_value = mock_tracker
+
+        # Configure parallel state with EP = 1
+        mock_mpu.get_pipeline_model_parallel_rank.return_value = 1
+        mock_mpu.get_pipeline_model_parallel_world_size.return_value = 2
+        mock_mpu.get_tensor_model_parallel_rank.return_value = 3
+        mock_mpu.get_tensor_model_parallel_world_size.return_value = 4
+        mock_mpu.get_expert_model_parallel_world_size.return_value = 1  # EP = 1
+        mock_mpu.get_data_parallel_rank.return_value = 5
+
+        result = get_rng_state(data_parallel_random_init=False)
+
+        # Verify the result is a ShardedObject with correct sharding
+        assert result.key == "rng_state"
+        # Shape should be (pp_size, tp_size) when EP = 1
+        assert result.global_shape == (2, 4)
+        # Global offset should NOT include dp_rank
+        assert result.global_offset == (1, 3)
+        # replica_id should be dp_rank when EP = 1
+        assert result.replica_id == 5
+
 
 class TestDeleteExtraState:
     """Tests for delete_extra_state utility added for cleanup of extraneous keys."""
