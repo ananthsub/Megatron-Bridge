@@ -1702,6 +1702,8 @@ def _load_checkpoint_from_path(
     # Load RNG states
     if not release and not cfg.checkpoint.finetune and cfg.checkpoint.load_rng and not ignore_rng_state:
         try:
+            cuda_rng_tracker = tensor_parallel.get_cuda_rng_tracker()
+            graph_safe_rng = tensor_parallel.is_graph_safe_cuda_rng_tracker(cuda_rng_tracker)
             if "rng_state" in state_dict:
                 if ckpt_format == "fsdp_dtensor":
                     # FSDP DTensor format: {(pp_rank, tp_rank): rng_state_list}
@@ -1732,7 +1734,11 @@ def _load_checkpoint_from_path(
                 torch.cuda.set_rng_state(rng_state["cuda_rng_state"])
                 if not rng_state["rng_tracker_states"]:
                     raise KeyError
-                tensor_parallel.get_cuda_rng_tracker().set_states(rng_state["rng_tracker_states"])
+                rng_tracker_states = {
+                    k: tensor_parallel.convert_cuda_rng_state(v, to_graphable=graph_safe_rng)
+                    for k, v in rng_state["rng_tracker_states"].items()
+                }
+                cuda_rng_tracker.set_states(rng_tracker_states)
             else:  # backward compatibility
                 random.setstate(state_dict["random_rng_state"])
                 np.random.set_state(state_dict["np_rng_state"])
@@ -1740,7 +1746,11 @@ def _load_checkpoint_from_path(
                 torch.cuda.set_rng_state(state_dict["cuda_rng_state"])
                 if not state_dict["rng_tracker_states"]:
                     raise KeyError
-                tensor_parallel.get_cuda_rng_tracker().set_states(state_dict["rng_tracker_states"])
+                rng_tracker_states = {
+                    k: tensor_parallel.convert_cuda_rng_state(v, to_graphable=graph_safe_rng)
+                    for k, v in state_dict["rng_tracker_states"].items()
+                }
+                cuda_rng_tracker.set_states(rng_tracker_states)
         except KeyError:
             print_rank_0(
                 "Unable to load rng state from checkpoint {}. "
