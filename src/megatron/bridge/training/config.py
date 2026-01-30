@@ -1755,7 +1755,6 @@ def _validate_mixed_precision_consistency(config: ConfigContainer) -> None:
             )
 
 
-<<<<<<< HEAD
 def _validate_fine_grained_activation_offloading(config: ConfigContainer) -> None:
     """Validate fine-grained activation offloading configuration.
 
@@ -1790,7 +1789,8 @@ def _validate_fine_grained_activation_offloading(config: ConfigContainer) -> Non
                 "For fine-grained activation offloading with TE >= 2.10.0, "
                 "NVTE_CPU_OFFLOAD_V1 environment variable should be set to 1 to avoid offloading weights."
             )
-=======
+
+
 def _validate_skip_train_settings(config: ConfigContainer) -> None:
     """Validate and apply skip_train settings.
 
@@ -1804,4 +1804,3 @@ def _validate_skip_train_settings(config: ConfigContainer) -> None:
     if config.train.skip_train and config.checkpoint.load_optim:
         config.checkpoint.load_optim = False
         print_rank_0("Warning: enabling load_optim=False when skipping training (skip_train=True).")
->>>>>>> 4c8a752a ([sync] Various quality-of-life improvements in training loop)
