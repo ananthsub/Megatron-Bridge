@@ -259,12 +259,8 @@ class TestPostTrainingCheckpointUtilities:
             modelopt_state_path.mkdir()
             _write_modelopt_common_state(modelopt_state_path, [("quantization", {"value": 1})])
 
-            # Mock the dist_checkpointing.load_common_state_dict
-            with patch("megatron.core.dist_checkpointing.load_common_state_dict") as mock_load:
-                mock_load.return_value = {"iteration": 100}
-
-                result = has_modelopt_state(str(checkpoint_path))
-                assert result is True
+            result = has_modelopt_state(str(checkpoint_path))
+            assert result is True
 
     def test_has_modelopt_state_with_iter_folders_no_modelopt_state(self):
         """Test has_modelopt_state when iter_* folders exist but no modelopt_state."""
@@ -274,12 +270,8 @@ class TestPostTrainingCheckpointUtilities:
             iter_folder.mkdir()
             # Don't create modelopt_state folder
 
-            # Mock the dist_checkpointing.load_common_state_dict
-            with patch("megatron.core.dist_checkpointing.load_common_state_dict") as mock_load:
-                mock_load.return_value = {"iteration": 100}
-
-                result = has_modelopt_state(str(checkpoint_path))
-                assert result is False
+            result = has_modelopt_state(str(checkpoint_path))
+            assert result is False
 
     def test_has_modelopt_state_with_multiple_iter_folders(self):
         """Test has_modelopt_state finds modelopt_state in the latest iter folder."""
@@ -296,20 +288,8 @@ class TestPostTrainingCheckpointUtilities:
             modelopt_state_path.mkdir()
             _write_modelopt_common_state(modelopt_state_path, [("quantization", {"value": 2})])
 
-            # Mock the dist_checkpointing.load_common_state_dict
-            with patch("megatron.core.dist_checkpointing.load_common_state_dict") as mock_load:
-
-                def load_side_effect(path):
-                    if "iter_0000100" in path:
-                        return {"iteration": 100}
-                    elif "iter_0000200" in path:
-                        return {"iteration": 200}
-                    return None
-
-                mock_load.side_effect = load_side_effect
-
-                result = has_modelopt_state(str(checkpoint_path))
-                assert result is True
+            result = has_modelopt_state(str(checkpoint_path))
+            assert result is True
 
 
 class TestLoadModeloptState:
