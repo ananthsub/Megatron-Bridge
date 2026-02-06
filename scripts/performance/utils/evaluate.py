@@ -129,7 +129,7 @@ def validate_convergence(
     golden_values: "np.ndarray",
     steps: List[str],
     logger: logging.Logger,
-    wandb_run: "wandb.Run",
+    wandb_run: Optional["wandb.Run"] = None,
     config: Dict[str, Any] = None,
 ) -> Dict[str, Any]:
     """
@@ -297,8 +297,9 @@ def validate_convergence(
 
         results["details"] = "\n".join(details)
 
-    wandb_run.summary["convergence_passed"] = results["passed"]
-    wandb_run.summary["convergence_failed_metrics"] = ",".join(results["failed_metrics"])
+    if wandb_run is not None:
+        wandb_run.summary["convergence_passed"] = results["passed"]
+        wandb_run.summary["convergence_failed_metrics"] = ",".join(results["failed_metrics"])
 
     for key, value in results["metrics"].items():
         if isinstance(value, float):
@@ -314,7 +315,7 @@ def validate_performance(
     golden_values: "np.ndarray",
     steps: List[str],
     logger: logging.Logger,
-    wandb_run: "wandb.Run",
+    wandb_run: Optional["wandb.Run"] = None,
     config: Dict[str, Any] = None,
 ) -> Dict[str, Any]:
     """
@@ -379,11 +380,12 @@ def validate_performance(
             f"✓ Step timing validation passed: {timing_diff * 100:.2f}% <= {config['timing_threshold'] * 100:.1f}%"
         )
 
-    wandb_run.summary["current_avg_timing"] = current_avg_timing
-    wandb_run.summary["golden_avg_timing"] = golden_avg_timing
-    wandb_run.summary["timing_diff"] = timing_diff
-    wandb_run.summary["timing_threshold"] = config["timing_threshold"]
-    wandb_run.summary["performance_passed"] = results["passed"]
+    if wandb_run is not None:
+        wandb_run.summary["current_avg_timing"] = current_avg_timing
+        wandb_run.summary["golden_avg_timing"] = golden_avg_timing
+        wandb_run.summary["timing_diff"] = timing_diff
+        wandb_run.summary["timing_threshold"] = config["timing_threshold"]
+        wandb_run.summary["performance_passed"] = results["passed"]
 
     return results
 
@@ -461,8 +463,9 @@ def validate_memory(
         results["summary"] = f"Failed {len(results['failed_metrics'])} out of 2 validation tests"
         logger.error(f"❌ Convergence validation FAILED: {results['summary']}")
 
-    wandb_run.summary["memory_passed"] = results["passed"]
-    wandb_run.summary["memory_failed_metrics"] = ",".join(results["failed_metrics"])
+    if wandb_run is not None:
+        wandb_run.summary["memory_passed"] = results["passed"]
+        wandb_run.summary["memory_failed_metrics"] = ",".join(results["failed_metrics"])
 
     for key, value in results["metrics"].items():
         if isinstance(value, float):
@@ -473,7 +476,9 @@ def validate_memory(
     return results
 
 
-def write_golden_values_to_disk(current_values: Dict[str, Any], golden_values_path: str, wandb_run: "wandb.Run"):
+def write_golden_values_to_disk(
+    current_values: Dict[str, Any], golden_values_path: str, wandb_run: Optional["wandb.Run"] = None
+):
     """
     Write golden values to a file.
     """
@@ -481,11 +486,11 @@ def write_golden_values_to_disk(current_values: Dict[str, Any], golden_values_pa
     with open(golden_values_path, "w") as f:
         json.dump(current_values, f)
 
-    artifact = wandb.Artifact("golden_values", type="dataset")
-    with artifact.new_file("golden_values.json", "w") as f:
-        json.dump({datetime.now().strftime("%m.%d.%y"): current_values}, f)
-
-    wandb_run.log_artifact(artifact)
+    if wandb_run is not None:
+        artifact = wandb.Artifact("golden_values", type="dataset")
+        with artifact.new_file("golden_values.json", "w") as f:
+            json.dump({datetime.now().strftime("%m.%d.%y"): current_values}, f)
+        wandb_run.log_artifact(artifact)
 
     logger.info(f"Golden values were saved for {golden_values_path}.")
 
@@ -658,18 +663,19 @@ def calc_convergence_and_performance(
         error_msg += f"Memory check failed. {memory_result['summary']}\n"
         error_msg += f"Memory difference is greater than threshold: {memory_result['memory_diff'] * 100:.2f}% > {memory_config['memory_threshold'] * 100:.1f}%\n"
 
-    wandb_run.define_metric("compare/*", step_metric="compare/step")
-    for i in range(len(steps)):
-        wandb_run.log(
-            {
-                "compare/step": i + 1,
-                "compare/current_lm_loss": current_train_loss_values[i],
-                "compare/current_iter_time": current_iter_time_values[i],
-                "compare/golden_lm_loss": golden_train_loss_values[i],
-                "compare/golden_iter_time": golden_iter_time_values[i],
-                "compare/current_grad_norm": current_grad_norm[str(i)],
-            }
-        )
+    if wandb_run is not None:
+        wandb_run.define_metric("compare/*", step_metric="compare/step")
+        for i in range(len(steps)):
+            wandb_run.log(
+                {
+                    "compare/step": i + 1,
+                    "compare/current_lm_loss": current_train_loss_values[i],
+                    "compare/current_iter_time": current_iter_time_values[i],
+                    "compare/golden_lm_loss": golden_train_loss_values[i],
+                    "compare/golden_iter_time": golden_iter_time_values[i],
+                    "compare/current_grad_norm": current_grad_norm[str(i)],
+                }
+            )
 
     logger.info(f"Convergence check completed successfully for {model_family_name}_{model_recipe_name}")
     return len(error_msg) == 0, error_msg

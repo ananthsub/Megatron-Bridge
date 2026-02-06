@@ -202,6 +202,34 @@ def parse_cli_args():
         required=True,
     )
     parser.add_argument(
+        "--hidden_size",
+        type=int,
+        help="Hidden size to use for the experiment. Defaults to None.",
+        required=False,
+        default=None,
+    )
+    parser.add_argument(
+        "--num_layers",
+        type=int,
+        help="Number of layers to use for the experiment. Defaults to None.",
+        required=False,
+        default=None,
+    )
+    parser.add_argument(
+        "--pipeline_model_parallel_layout",
+        type=str,
+        help="Pipeline model parallel layout to use for the experiment. Defaults to None.",
+        required=False,
+        default=None,
+    )
+    parser.add_argument(
+        "--first_k_dense_replace",
+        type=int,
+        help="Number of MoE layers to be converted to dense layers. Defaults to None.",
+        required=False,
+        default=None,
+    )
+    parser.add_argument(
         "-d",
         "--dryrun",
         help="If true, prints sbatch script to terminal without launching experiment.",
@@ -392,6 +420,14 @@ def parse_cli_args():
         default=[],
     )
     slurm_args.add_argument(
+        "-cb",
+        "--custom_bash_cmds",
+        nargs="*",
+        action="append",
+        help="List of bash commands to execute before the main command",
+        default=None,
+    )
+    slurm_args.add_argument(
         "--gres",
         type=str,
         help="Slurm generic resources to request (e.g., 'gpu:4').",
@@ -530,6 +566,22 @@ def parse_cli_args():
         type=list_of_ints,
         metavar="N[,N...]",
         help="List of ranks to target for profiling (defaults to just first rank)",
+        required=False,
+        default=None,
+    )
+    performance_args.add_argument(
+        "--nsys_trace",
+        type=list_of_strings,
+        metavar="TRACE[,TRACE...]",
+        help="Comma-separated list of events to trace during nsys profiling (e.g., 'cuda,nvtx'). Defaults to nemo_run defaults.",
+        required=False,
+        default=None,
+    )
+    performance_args.add_argument(
+        "--nsys_extra_args",
+        type=list_of_strings,
+        metavar="ARG[,ARG...]",
+        help="Comma-separated list of additional nsys arguments. Will be combined with default args.",
         required=False,
         default=None,
     )
