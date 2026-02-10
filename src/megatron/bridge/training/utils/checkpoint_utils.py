@@ -187,7 +187,7 @@ def checkpoint_exists(checkpoints_path: Optional[str]) -> bool:
         return os.path.isfile(path)
 
 
-def resolve_checkpoint_path(path: str) -> str:
+def resolve_checkpoint_path(path: str | os.PathLike[str]) -> str:
     """Resolve a checkpoint path to a specific iteration directory.
 
     This utility handles both:
@@ -203,24 +203,27 @@ def resolve_checkpoint_path(path: str) -> str:
         The full path to the resolved iteration directory.
 
     Raises:
-        FileNotFoundError: If path doesn't exist or no iteration checkpoints found.
+        FileNotFoundError: If path doesn't exist or no iteration checkpoints found
+            in a top-level directory.
         NotADirectoryError: If the path exists but is not a directory.
     """
+    path_str = str(path)
+
     # Validate path exists and is a directory
-    exists, is_dir = _path_exists_and_is_dir(path)
+    exists, is_dir = _path_exists_and_is_dir(path_str)
     if not exists:
-        raise FileNotFoundError(f"Checkpoint path does not exist: {path}")
+        raise FileNotFoundError(f"Checkpoint path does not exist: {path_str}")
     if not is_dir:
-        raise NotADirectoryError(f"Checkpoint path must be a directory: {path}")
+        raise NotADirectoryError(f"Checkpoint path must be a directory: {path_str}")
 
     # If already an iteration directory, return as-is
-    if is_iteration_directory(path):
-        return path
+    if is_iteration_directory(path_str):
+        return path_str
 
     # Find latest iteration in top-level directory
-    iter_dirs = _list_iteration_directories(path)
+    iter_dirs = _list_iteration_directories(path_str)
     if not iter_dirs:
-        raise FileNotFoundError(f"No iteration checkpoints found in: {path}")
+        raise FileNotFoundError(f"No iteration checkpoints found in: {path_str}")
 
     return _get_latest_iteration_path(iter_dirs)
 
@@ -238,7 +241,8 @@ def get_hf_model_id_from_checkpoint(path: str | os.PathLike[str]) -> str | None:
         The HuggingFace model identifier/path if present, otherwise ``None``.
 
     Raises:
-        FileNotFoundError: If the provided path does not exist.
+        FileNotFoundError: If the provided path does not exist, or if ``path`` is a
+            top-level checkpoint directory that contains no ``iter_*`` subdirectories.
         NotADirectoryError: If the provided path is not a directory.
     """
     path_str = str(path)
