@@ -1223,7 +1223,7 @@ def preprocess_fsdp_dtensor_state_dict(cfg, raw_state_dict: dict[str, Any], mode
     return state_dict
 
 
-def _load_model_weights_from_checkpoint(
+def load_model_weights_from_checkpoint(
     checkpoint_path: str,
     model: list[MegatronModule],
     fully_parallel_load: bool = False,
@@ -1239,23 +1239,79 @@ def _load_model_weights_from_checkpoint(
         "ignore_all",
     ] = "assume_ok_unexpected",
     strict: bool = True,
+    cfg: Optional[ConfigContainer] = None,
 ) -> Optional[Union[StateDict, tuple[StateDict, set[str], set[str]]]]:
-    """Load model weights from a checkpoint.
+    """Load model weights from a checkpoint iteration directory.
 
-    MCore distributed checkpoints from both Megatron Bridge and MegatronLM are supported.
-    This function duplicates some logic from load_checkpoint() to simplify model
-    loading for inference.
+    Supports both ``torch_dist`` and ``fsdp_dtensor`` checkpoint formats,
+    auto-detected from the checkpoint contents.
+
+    Unlike :func:`load_checkpoint`, this function:
+
+    - Takes a **direct** path to an iteration directory
+      (e.g. ``/path/to/ckpt/iter_0005000``).
+    - Loads **only** model weights -- no optimizer, scheduler, RNG, or
+      iteration state.
+    - Does **not** read tracker files or resolve iterations.
+    - Does **not** require a :class:`GlobalState`.
 
     Args:
-        checkpoint_path: path to a distributed checkpoint.
+        checkpoint_path: Direct path to the checkpoint iteration directory.
         model: The model module(s) to load weights into.
         fully_parallel_load: Apply full load parallelization across DP.
-        return_state_dict: Skips loading state dict into model and returns model state dict
-            itself. Default False.
-        dist_ckpt_strictness: Determine handling of key mismatch during checkpoint load.
-        strict: Whether to enforce strict loading (see torch.nn.Module.load_state_dict).
+        return_state_dict: If True, skip loading into the model and return the
+            state dict instead.
+        dist_ckpt_strictness: Handling of key mismatches during checkpoint load.
+        strict: Whether to enforce strict loading
+            (see :meth:`torch.nn.Module.load_state_dict`).
+        cfg: :class:`ConfigContainer`, required for ``fsdp_dtensor`` format
+            (used by :func:`preprocess_fsdp_dtensor_state_dict`).
     """
+    ckpt_format = _get_checkpoint_format(checkpoint_path)
 
+    if ckpt_format == "torch_dist":
+        state_dict = _load_torch_dist_model_weights(
+            checkpoint_path, model, fully_parallel_load, dist_ckpt_strictness,
+        )
+    elif ckpt_format == "fsdp_dtensor":
+        if not HAVE_MEGATRON_FSDP:
+            raise RuntimeError(
+                "Megatron FSDP is required but not available for loading fsdp_dtensor checkpoints."
+            )
+        state_dict = _load_fsdp_dtensor_model_weights(
+            checkpoint_path, model, cfg,
+        )
+    else:
+        raise NotImplementedError(
+            f"Checkpoint format '{ckpt_format}' is not supported by "
+            f"load_model_weights_from_checkpoint. "
+            f"Supported formats: 'torch_dist', 'fsdp_dtensor'."
+        )
+
+    if return_state_dict:
+        return state_dict
+
+    model_unwrapped = unwrap_model(model)
+    if len(model_unwrapped) == 1:
+        _load_model_state_dict(model_unwrapped[0], state_dict["model"], strict)
+    else:
+        for i in range(len(model_unwrapped)):
+            model_key = "model%d" % i
+            if model_key not in state_dict:
+                continue
+            _load_model_state_dict(model_unwrapped[i], state_dict[model_key], strict)
+
+    if torch.distributed.is_initialized():
+        torch.distributed.barrier()
+
+
+def _load_torch_dist_model_weights(
+    checkpoint_path: str,
+    model: list[MegatronModule],
+    fully_parallel_load: bool,
+    dist_ckpt_strictness: str,
+) -> StateDict:
+    """Load model weights from a torch_dist checkpoint."""
     state_dict = dist_checkpointing.load_common_state_dict(checkpoint_path)
     assert state_dict is not None
 
@@ -1266,36 +1322,49 @@ def _load_model_weights_from_checkpoint(
     # [ModelOpt]: Restore state
     restore_modelopt_state(model, state_dict)
 
-    model = unwrap_model(model)
-    pg_collection = get_pg_collection(model)
-    sharded_state_dict = _generate_model_state_dict(model, model_sd_kwargs, pg_collection=pg_collection)
+    model_unwrapped = unwrap_model(model)
+    pg_collection = get_pg_collection(model_unwrapped)
+    sharded_state_dict = _generate_model_state_dict(
+        model_unwrapped, model_sd_kwargs, pg_collection=pg_collection,
+    )
 
     load_strategy = get_default_load_sharded_strategy(checkpoint_path)
     if fully_parallel_load:
-        pg_collection = get_pg_collection(model)
         load_strategy = FullyParallelLoadStrategyWrapper(load_strategy, pg_collection.dp_cp)
     state_dict = dist_checkpointing.load(
-        sharded_state_dict, checkpoint_path, load_strategy, strict=dist_ckpt_strictness
+        sharded_state_dict, checkpoint_path, load_strategy, strict=dist_ckpt_strictness,
     )
-    # we keep weights only for bridge use, remove extra state
-    # because they are not needed and could cause unexpected issues.
     delete_extra_state(state_dict)
-    if return_state_dict:
-        return state_dict
+    return state_dict
 
-    if len(model) == 1:
-        _load_model_state_dict(model[0], state_dict["model"], strict)
-    else:
-        for i in range(len(model)):
-            # If there is no corresponding model in the state_dict, it will be ignored.
-            # It means that this is an empty stage.
-            model_key = "model%d" % i
-            if model_key not in state_dict:
-                continue
-            _load_model_state_dict(model[i], state_dict[model_key], strict)
 
-    if torch.distributed.is_initialized():
-        torch.distributed.barrier()
+def _load_fsdp_dtensor_model_weights(
+    checkpoint_path: str,
+    model: list[MegatronModule],
+    cfg: Optional[ConfigContainer],
+) -> StateDict:
+    """Load model weights from an fsdp_dtensor checkpoint."""
+    model_unwrapped = unwrap_model(model)
+    sharded_state_dict = _generate_model_state_dict(
+        model_unwrapped, ckpt_format="fsdp_dtensor",
+    )
+
+    state_dict = preprocess_fsdp_dtensor_state_dict(cfg, sharded_state_dict, model_unwrapped[0])
+
+    fs_reader = torch.distributed.checkpoint.FileSystemReader(checkpoint_path)
+    planner = torch.distributed.checkpoint.default_planner.DefaultLoadPlanner(
+        allow_partial_load=True,
+    )
+    torch.distributed.checkpoint.load_state_dict(
+        state_dict=state_dict,
+        storage_reader=fs_reader,
+        planner=planner,
+    )
+    return state_dict
+
+
+# Keep the old private name as an alias for backward compatibility.
+_load_model_weights_from_checkpoint = load_model_weights_from_checkpoint
 
 
 def load_checkpoint(

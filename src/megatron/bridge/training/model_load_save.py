@@ -266,7 +266,7 @@ def build_and_load_model(
         otherwise returns a dictionary containing the full, unsharded model state_dict.
     """
     from megatron.bridge.training.checkpointing import (
-        _load_model_weights_from_checkpoint,
+        load_model_weights_from_checkpoint,
     )
     from megatron.bridge.training.mlm_compat.arguments import _tokenizer_config_from_args
     from megatron.bridge.training.mlm_compat.model import _get_model, _gpt_provider, _mamba_provider
@@ -324,7 +324,7 @@ def build_and_load_model(
 
             load_modelopt_state(model, checkpoint_path)
 
-        maybe_state_dict = _load_model_weights_from_checkpoint(
+        maybe_state_dict = load_model_weights_from_checkpoint(
             checkpoint_path, model, return_state_dict=return_state_dict
         )
 

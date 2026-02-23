@@ -41,6 +41,7 @@ from megatron.bridge.training.checkpointing import (
     get_rng_state,
     init_checkpointing_context,
     load_checkpoint,
+    load_model_weights_from_checkpoint,
     read_metadata,
     save_checkpoint,
 )
@@ -1484,6 +1485,113 @@ class TestLoadModelWeightsFromCheckpoint:
         assert returned_sd == mock_full_state_dict
         mock_dist_ckpt.load.assert_called_once()
         mock_load_state_dict.assert_not_called()
+
+
+class TestLoadModelWeightsFormatDispatch:
+    """Tests for format detection and dispatch in load_model_weights_from_checkpoint.
+
+    Covers torch_dist vs fsdp_dtensor dispatch, error handling for
+    unsupported formats, and multi-model loading.
+    """
+
+    @pytest.fixture
+    def mock_model(self):
+        model = Mock()
+        model.sharded_state_dict.return_value = {"weight": torch.randn(10, 10)}
+        return [model]
+
+    @patch("megatron.bridge.training.checkpointing._load_torch_dist_model_weights")
+    @patch("megatron.bridge.training.checkpointing._get_checkpoint_format", return_value="torch_dist")
+    @patch("megatron.bridge.training.checkpointing.unwrap_model")
+    @patch("megatron.bridge.training.checkpointing._load_model_state_dict")
+    def test_dispatches_to_torch_dist(
+        self, mock_load_sd, mock_unwrap, mock_fmt, mock_torch_dist_load, mock_model,
+    ):
+        """torch_dist checkpoints should be dispatched to _load_torch_dist_model_weights."""
+        mock_torch_dist_load.return_value = {"model": {"w": torch.randn(1)}}
+        mock_unwrap.return_value = mock_model
+
+        load_model_weights_from_checkpoint("/ckpt/iter_0000001", mock_model)
+
+        mock_fmt.assert_called_once_with("/ckpt/iter_0000001")
+        mock_torch_dist_load.assert_called_once()
+        args = mock_torch_dist_load.call_args
+        assert args[0][0] == "/ckpt/iter_0000001"
+
+    @patch("megatron.bridge.training.checkpointing.HAVE_MEGATRON_FSDP", True)
+    @patch("megatron.bridge.training.checkpointing._load_fsdp_dtensor_model_weights")
+    @patch("megatron.bridge.training.checkpointing._get_checkpoint_format", return_value="fsdp_dtensor")
+    @patch("megatron.bridge.training.checkpointing.unwrap_model")
+    @patch("megatron.bridge.training.checkpointing._load_model_state_dict")
+    def test_dispatches_to_fsdp_dtensor(
+        self, mock_load_sd, mock_unwrap, mock_fmt, mock_fsdp_load, mock_model,
+    ):
+        """fsdp_dtensor checkpoints should be dispatched to _load_fsdp_dtensor_model_weights."""
+        mock_fsdp_load.return_value = {"model": {"w": torch.randn(1)}}
+        mock_unwrap.return_value = mock_model
+
+        mock_cfg = Mock()
+        load_model_weights_from_checkpoint("/ckpt/iter_0000001", mock_model, cfg=mock_cfg)
+
+        mock_fmt.assert_called_once_with("/ckpt/iter_0000001")
+        mock_fsdp_load.assert_called_once()
+        args = mock_fsdp_load.call_args
+        assert args[0][0] == "/ckpt/iter_0000001"
+        assert args[0][2] is mock_cfg
+
+    @patch("megatron.bridge.training.checkpointing.HAVE_MEGATRON_FSDP", False)
+    @patch("megatron.bridge.training.checkpointing._get_checkpoint_format", return_value="fsdp_dtensor")
+    def test_fsdp_dtensor_without_megatron_fsdp_raises(self, mock_fmt, mock_model):
+        """fsdp_dtensor format should raise when HAVE_MEGATRON_FSDP is False."""
+        with pytest.raises(RuntimeError, match="Megatron FSDP is required"):
+            load_model_weights_from_checkpoint("/ckpt/iter_0000001", mock_model)
+
+    @patch("megatron.bridge.training.checkpointing._get_checkpoint_format", return_value="unknown_format")
+    def test_unsupported_format_raises(self, mock_fmt, mock_model):
+        """Unsupported checkpoint formats should raise NotImplementedError."""
+        with pytest.raises(NotImplementedError, match="unknown_format"):
+            load_model_weights_from_checkpoint("/ckpt/iter_0000001", mock_model)
+
+    @patch("megatron.bridge.training.checkpointing._load_torch_dist_model_weights")
+    @patch("megatron.bridge.training.checkpointing._get_checkpoint_format", return_value="torch_dist")
+    @patch("megatron.bridge.training.checkpointing.unwrap_model")
+    def test_return_state_dict_skips_model_load(
+        self, mock_unwrap, mock_fmt, mock_torch_dist_load, mock_model,
+    ):
+        """return_state_dict=True should return the state dict without loading into model."""
+        expected_sd = {"model": {"w": torch.randn(1)}}
+        mock_torch_dist_load.return_value = expected_sd
+        mock_unwrap.return_value = mock_model
+
+        result = load_model_weights_from_checkpoint(
+            "/ckpt/iter_0000001", mock_model, return_state_dict=True,
+        )
+
+        assert result is expected_sd
+
+    @patch("megatron.bridge.training.checkpointing._load_torch_dist_model_weights")
+    @patch("megatron.bridge.training.checkpointing._get_checkpoint_format", return_value="torch_dist")
+    @patch("megatron.bridge.training.checkpointing.unwrap_model")
+    @patch("megatron.bridge.training.checkpointing._load_model_state_dict")
+    def test_loads_multiple_models(
+        self, mock_load_sd, mock_unwrap, mock_fmt, mock_torch_dist_load,
+    ):
+        """Multiple model chunks (PP) should each get their state loaded."""
+        model0 = Mock()
+        model1 = Mock()
+        models = [model0, model1]
+        state_dict = {
+            "model0": {"w0": torch.randn(1)},
+            "model1": {"w1": torch.randn(1)},
+        }
+        mock_torch_dist_load.return_value = state_dict
+        mock_unwrap.return_value = models
+
+        load_model_weights_from_checkpoint("/ckpt/iter_0000001", models, strict=True)
+
+        assert mock_load_sd.call_count == 2
+        mock_load_sd.assert_any_call(model0, state_dict["model0"], True)
+        mock_load_sd.assert_any_call(model1, state_dict["model1"], True)
 
 
 class TestLoadModelStateDictHelper:
