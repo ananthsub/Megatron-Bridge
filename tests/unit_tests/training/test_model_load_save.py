@@ -190,7 +190,6 @@ class TestLoadMegatronModel:
 
     @patch("megatron.bridge.training.model_load_save.temporary_distributed_context")
     @patch("megatron.bridge.training.checkpointing._get_checkpoint_format")
-    @patch("megatron.bridge.training.checkpointing.resolve_checkpoint_path")
     @patch("megatron.bridge.training.checkpointing._load_model_weights_from_checkpoint")
     @patch("megatron.bridge.utils.instantiate_utils.instantiate")
     @patch("megatron.bridge.training.checkpointing.read_run_config")
@@ -205,7 +204,6 @@ class TestLoadMegatronModel:
         mock_run_config,
         mock_instantiate,
         mock_load_weights,
-        mock_resolve_path,
         mock_get_format,
         mock_temp_dist,
     ):
@@ -231,9 +229,6 @@ class TestLoadMegatronModel:
         with tempfile.TemporaryDirectory() as ckpt_path:
             config_file = Path(ckpt_path) / "run_config.yaml"
             config_file.touch()
-            # Mock resolve_checkpoint_path to return the path as-is
-            mock_resolve_path.return_value = ckpt_path
-            # Mock checkpoint format detection
             mock_get_format.return_value = "torch_dist"
             result = load_megatron_model(ckpt_path, return_state_dict=True, use_cpu_init=True)
 
@@ -258,7 +253,6 @@ class TestLoadMegatronModel:
     @pytest.mark.parametrize("model_type", ["gpt", "mamba", "resnet"])
     @patch("megatron.bridge.training.model_load_save.temporary_distributed_context")
     @patch("megatron.bridge.training.checkpointing._get_checkpoint_format")
-    @patch("megatron.bridge.training.checkpointing.resolve_checkpoint_path")
     @patch("megatron.bridge.training.mlm_compat.model._mamba_provider")
     @patch("megatron.bridge.training.mlm_compat.model._gpt_provider")
     @patch("megatron.bridge.training.mlm_compat.model._get_model")
@@ -281,7 +275,6 @@ class TestLoadMegatronModel:
         mock_get_model,
         mock_gpt_provider,
         mock_mamba_provider,
-        mock_resolve_path,
         mock_get_format,
         mock_temp_dist,
         model_type,
@@ -291,9 +284,6 @@ class TestLoadMegatronModel:
         mock_dist.is_initialized.return_value = False
 
         ckpt_path = "/path/to/mock/dist_checkpoint"
-        # Mock resolve_checkpoint_path to return the path as-is
-        mock_resolve_path.return_value = ckpt_path
-        # Mock checkpoint format detection
         mock_get_format.return_value = "torch_dist"
 
         mock_args = Mock()
@@ -358,7 +348,6 @@ class TestLoadMegatronModel:
 
     @patch("megatron.bridge.training.model_load_save.temporary_distributed_context")
     @patch("megatron.bridge.training.checkpointing._get_checkpoint_format")
-    @patch("megatron.bridge.training.checkpointing.resolve_checkpoint_path")
     @patch("megatron.bridge.training.checkpointing._load_model_weights_from_checkpoint")
     @patch("megatron.bridge.utils.instantiate_utils.instantiate")
     @patch("megatron.bridge.training.checkpointing.read_run_config")
@@ -373,7 +362,6 @@ class TestLoadMegatronModel:
         mock_run_config,
         mock_instantiate,
         mock_load_weights,
-        mock_resolve_path,
         mock_get_format,
         mock_temp_dist,
     ):
@@ -399,9 +387,6 @@ class TestLoadMegatronModel:
         with tempfile.TemporaryDirectory() as ckpt_path:
             config_file = Path(ckpt_path) / "run_config.yaml"
             config_file.touch()
-            # Mock resolve_checkpoint_path to return the path as-is
-            mock_resolve_path.return_value = ckpt_path
-            # Mock checkpoint format detection
             mock_get_format.return_value = "torch_dist"
             result = load_megatron_model(ckpt_path, use_cpu_init=True)
 
@@ -410,7 +395,6 @@ class TestLoadMegatronModel:
 
     @patch("megatron.bridge.training.model_load_save.temporary_distributed_context")
     @patch("megatron.bridge.training.checkpointing._get_checkpoint_format")
-    @patch("megatron.bridge.training.checkpointing.resolve_checkpoint_path")
     @patch("megatron.bridge.training.post_training.checkpointing.load_modelopt_state")
     @patch("megatron.bridge.training.post_training.checkpointing.has_modelopt_state")
     @patch("megatron.bridge.training.checkpointing._load_model_weights_from_checkpoint")
@@ -429,7 +413,6 @@ class TestLoadMegatronModel:
         mock_load_weights,
         mock_has_modelopt_state,
         mock_load_modelopt_state,
-        mock_resolve_path,
         mock_get_format,
         mock_temp_dist,
     ):
@@ -460,9 +443,6 @@ class TestLoadMegatronModel:
         with tempfile.TemporaryDirectory() as ckpt_path:
             config_file = Path(ckpt_path) / "run_config.yaml"
             config_file.touch()
-            # Mock resolve_checkpoint_path to return the path as-is
-            mock_resolve_path.return_value = ckpt_path
-            # Mock checkpoint format detection
             mock_get_format.return_value = "torch_dist"
             result = load_megatron_model(ckpt_path, return_state_dict=True, use_cpu_init=True)
 
@@ -478,7 +458,6 @@ class TestLoadMegatronModel:
 
     @patch("megatron.bridge.training.model_load_save.temporary_distributed_context")
     @patch("megatron.bridge.training.checkpointing._get_checkpoint_format")
-    @patch("megatron.bridge.training.checkpointing.resolve_checkpoint_path")
     @patch("megatron.bridge.training.post_training.checkpointing.load_modelopt_state")
     @patch("megatron.bridge.training.post_training.checkpointing.has_modelopt_state")
     @patch("megatron.bridge.training.checkpointing._load_model_weights_from_checkpoint")
@@ -501,7 +480,6 @@ class TestLoadMegatronModel:
         mock_load_weights,
         mock_has_modelopt_state,
         mock_load_modelopt_state,
-        mock_resolve_path,
         mock_get_format,
         mock_temp_dist,
     ):
@@ -546,9 +524,6 @@ class TestLoadMegatronModel:
         mock_has_modelopt_state.return_value = True
 
         with tempfile.TemporaryDirectory() as ckpt_path:
-            # Mock resolve_checkpoint_path to return the path as-is
-            mock_resolve_path.return_value = ckpt_path
-            # Mock checkpoint format detection
             mock_get_format.return_value = "torch_dist"
             result = load_megatron_model(ckpt_path, model_type="gpt", return_state_dict=True, use_cpu_init=True)
 

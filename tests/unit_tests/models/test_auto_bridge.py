@@ -784,7 +784,6 @@ class TestAutoBridge:
             "./megatron_checkpoint",
             hf_tokenizer_path="meta-llama/Meta-Llama-3-8B",
             hf_tokenizer_kwargs=mock_bridge._model_bridge.get_hf_tokenizer_kwargs(),
-            low_memory_save=True,
         )
 
     @patch.object(AutoBridge, "save_megatron_model")
@@ -811,7 +810,6 @@ class TestAutoBridge:
             "./megatron_checkpoint",
             hf_tokenizer_path="./local_model",
             hf_tokenizer_kwargs=mock_bridge._model_bridge.get_hf_tokenizer_kwargs(),
-            low_memory_save=True,
         )
 
     def test_export_ckpt_basic(self):
@@ -889,14 +887,10 @@ class TestAutoBridge:
         bridge.hf_pretrained = mock_hf_model
 
         with patch("megatron.bridge.training.model_load_save.save_megatron_model") as mock_save_megatron_model:
-            bridge.save_megatron_model(mock_megatron_model, "./checkpoint_path", low_memory_save=True)
+            bridge.save_megatron_model(mock_megatron_model, "./checkpoint_path")
 
             mock_save_megatron_model.assert_called_once_with(
-                mock_megatron_model,
-                "./checkpoint_path",
-                hf_tokenizer_path=None,
-                low_memory_save=True,
-                hf_tokenizer_kwargs=None,
+                mock_megatron_model, "./checkpoint_path", hf_tokenizer_path=None, hf_tokenizer_kwargs=None
             )
 
     def test_save_megatron_model_with_tokenizer(self):
@@ -913,17 +907,13 @@ class TestAutoBridge:
 
         with patch("megatron.bridge.training.model_load_save.save_megatron_model") as mock_save_megatron_model:
             bridge.save_megatron_model(
-                mock_megatron_model,
-                "./checkpoint_path",
-                hf_tokenizer_path="meta-llama/Meta-Llama-3-8B",
-                low_memory_save=True,
+                mock_megatron_model, "./checkpoint_path", hf_tokenizer_path="meta-llama/Meta-Llama-3-8B"
             )
 
             mock_save_megatron_model.assert_called_once_with(
                 mock_megatron_model,
                 "./checkpoint_path",
                 hf_tokenizer_path="meta-llama/Meta-Llama-3-8B",
-                low_memory_save=True,
                 hf_tokenizer_kwargs=None,
             )
 
@@ -955,17 +945,21 @@ class TestAutoBridge:
         bridge.hf_pretrained = mock_hf_model
 
         with patch("megatron.bridge.training.model_load_save.load_megatron_model") as mock_load_megatron_model:
-            with patch("megatron.bridge.training.utils.checkpoint_utils.resolve_checkpoint_path") as mock_resolve:
+            from pathlib import Path
+
+            with patch.object(Path, "iterdir") as mock_iterdir:
                 # Setup mocks
                 mock_model = Mock()
                 mock_load_megatron_model.return_value = mock_model
-                mock_resolve.return_value = "./checkpoint_path"
+
+                # Mock iterdir to return empty list (no iter_ folders)
+                mock_iterdir.return_value = []
 
                 result = bridge.load_megatron_model("./checkpoint_path")
 
                 assert result == [mock_model]
                 mock_load_megatron_model.assert_called_once()
-                mock_resolve.assert_called_once_with("./checkpoint_path")
+                mock_iterdir.assert_called_once()
 
     def test_load_megatron_model_with_iter_folder(self):
         """Test load_megatron_model with iter_ folders."""
@@ -975,21 +969,32 @@ class TestAutoBridge:
         bridge.hf_pretrained = mock_hf_model
 
         with patch("megatron.bridge.training.model_load_save.load_megatron_model") as mock_load_megatron_model:
-            with patch("megatron.bridge.training.utils.checkpoint_utils.resolve_checkpoint_path") as mock_resolve:
+            from pathlib import Path
+
+            # Create mock folder objects
+            mock_iter_folder_1 = Mock()
+            mock_iter_folder_1.is_dir.return_value = True
+            mock_iter_folder_1.name = "iter_0000010"
+
+            mock_iter_folder_2 = Mock()
+            mock_iter_folder_2.is_dir.return_value = True
+            mock_iter_folder_2.name = "iter_0000020"
+
+            # Mock path.iterdir()
+            with patch.object(Path, "iterdir") as mock_iterdir:
                 # Setup mocks
                 mock_model = Mock()
                 mock_load_megatron_model.return_value = mock_model
-                # Mock resolve_checkpoint_path to return the latest iteration
-                mock_resolve.return_value = "./checkpoint_path/iter_0000020"
+
+                # Mock iterdir to return the iter folders
+                mock_iterdir.return_value = [mock_iter_folder_1, mock_iter_folder_2]
 
                 result = bridge.load_megatron_model("./checkpoint_path")
 
                 assert result == [mock_model]
                 mock_load_megatron_model.assert_called_once()
-                mock_resolve.assert_called_once_with("./checkpoint_path")
-                # Verify the resolved path was used
-                call_args = mock_load_megatron_model.call_args
-                assert call_args.args[0] == "./checkpoint_path/iter_0000020"
+                mock_iterdir.assert_called_once()
+                # Should use the latest iteration (iter_0000020)
 
     def test_load_megatron_model_with_mp_overrides(self):
         """Test load_megatron_model with model-parallel overrides argument."""
@@ -1009,13 +1014,17 @@ class TestAutoBridge:
         }
 
         with patch("megatron.bridge.training.model_load_save.load_megatron_model") as mock_load_megatron_model:
-            with patch("megatron.bridge.training.utils.checkpoint_utils.resolve_checkpoint_path") as mock_resolve:
-                with patch("torch.distributed.is_available", return_value=False):
-                    with patch("torch.distributed.is_initialized", return_value=False):
+            with patch("torch.distributed.is_available", return_value=False):
+                with patch("torch.distributed.is_initialized", return_value=False):
+                    from pathlib import Path
+
+                    with patch.object(Path, "iterdir") as mock_iterdir:
                         # Setup mocks
                         mock_model = Mock()
                         mock_load_megatron_model.return_value = mock_model
-                        mock_resolve.return_value = "checkpoint_path"
+
+                        # Mock iterdir to return empty list (no iter_ folders)
+                        mock_iterdir.return_value = []
 
                         # Call load_megatron_model with model-parallel overrides
                         result = bridge.load_megatron_model(

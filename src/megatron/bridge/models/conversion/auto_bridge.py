@@ -579,7 +579,6 @@ class AutoBridge(Generic[MegatronModelT]):
         model: list[MegatronModule],
         path: str | Path,
         hf_tokenizer_path: Optional[str | Path] = None,
-        low_memory_save: bool = False,
         hf_tokenizer_kwargs: Optional[dict] = None,
     ) -> None:
         """
@@ -596,11 +595,6 @@ class AutoBridge(Generic[MegatronModelT]):
             path: Directory path where the checkpoint will be saved
             hf_tokenizer_path: Optional HuggingFace model ID or path for tokenizer metadata.
                 If provided, the tokenizer metadata will be included in the checkpoint.
-            low_memory_save: If True, uses a memory-optimized save flow that reduces
-                peak memory by ~50% for models with merged weights (e.g., gate+up
-                projections). The model is deleted after state dict generation and
-                cannot be used afterward. Default is False, preserving the model
-                for further use.
             hf_tokenizer_kwargs: Optional dictionary of kwargs to pass to the HuggingFace tokenizer.
                 Common options include trust_remote_code=True for models with custom tokenizers,
                 or use_fast=True for models that require the fast tokenizer.
@@ -616,30 +610,16 @@ class AutoBridge(Generic[MegatronModelT]):
             ...     hf_tokenizer_path="meta-llama/Meta-Llama-3-8B"
             ... )
 
-            >>> # Low-memory save (destroys model after save)
-            >>> bridge.save_megatron_model(
-            ...     megatron_model,
-            ...     "./megatron_checkpoint",
-            ...     low_memory_save=True
-            ... )
-
         Note:
             - This method is collective and must be called by all ranks
             - The saved checkpoint can be loaded with Megatron's checkpoint loading utilities
             - The checkpoint format follows Megatron's standard structure for compatibility
-            - When low_memory_save=True, the model is deleted and cannot be used afterward
         """
         try:
             from megatron.bridge.training.model_load_save import save_megatron_model
         except ImportError:
             raise ImportError("megatron.bridge.training is not available.")
-        save_megatron_model(
-            model,
-            path,
-            hf_tokenizer_path=hf_tokenizer_path,
-            low_memory_save=low_memory_save,
-            hf_tokenizer_kwargs=hf_tokenizer_kwargs,
-        )
+        save_megatron_model(model, path, hf_tokenizer_path=hf_tokenizer_path, hf_tokenizer_kwargs=hf_tokenizer_kwargs)
 
     def load_megatron_model(
         self, path: str | Path, *, mp_overrides: ModelParallelKwargs | None = None, **kwargs: Unpack[GetModelKwargs]
@@ -677,17 +657,30 @@ class AutoBridge(Generic[MegatronModelT]):
         """
         try:
             from megatron.bridge.training.model_load_save import load_megatron_model
-            from megatron.bridge.training.utils.checkpoint_utils import resolve_checkpoint_path
         except ImportError:
             raise ImportError("megatron.bridge.training is not available.")
 
-        # Resolve to specific iteration (handles both top-level and iter_* paths)
-        resolved_path = resolve_checkpoint_path(str(path))
+        checkpoint_path = Path(path)
+
+        # Check for iter_* folders
+        iter_folders = [f for f in checkpoint_path.iterdir() if f.is_dir() and f.name.startswith("iter_")]
+
+        if iter_folders:
+            # Find the folder with the largest iteration number
+            def get_iter_number(folder_name):
+                try:
+                    return int(folder_name.replace("iter_", ""))
+                except ValueError:
+                    return -1  # Invalid format, put at the end
+
+            latest_iter = max(iter_folders, key=lambda f: get_iter_number(f.name))
+            checkpoint_path = checkpoint_path / latest_iter.name
+        # else: checkpoint_path remains as the input path (no iter folders found)
 
         skip_temp_dist_context = dist.is_available() and dist.is_initialized()
         # Load the state dict
         model = load_megatron_model(
-            resolved_path,
+            str(checkpoint_path),
             use_cpu_init=(skip_temp_dist_context and dist.get_backend() == "gloo"),
             skip_temp_dist_context=skip_temp_dist_context,
             mp_overrides=mp_overrides,
@@ -746,11 +739,7 @@ class AutoBridge(Generic[MegatronModelT]):
         if hasattr(bridge._model_bridge, "get_hf_tokenizer_kwargs"):
             hf_tokenizer_kwargs = bridge._model_bridge.get_hf_tokenizer_kwargs()
         bridge.save_megatron_model(
-            megatron_model,
-            megatron_path,
-            hf_tokenizer_path=hf_model_id,
-            hf_tokenizer_kwargs=hf_tokenizer_kwargs,
-            low_memory_save=True,
+            megatron_model, megatron_path, hf_tokenizer_path=hf_model_id, hf_tokenizer_kwargs=hf_tokenizer_kwargs
         )
 
     def export_ckpt(
@@ -1018,14 +1007,7 @@ class AutoBridge(Generic[MegatronModelT]):
 
     @property
     def _model_bridge(self) -> "MegatronModelBridge":
-        hf_config = getattr(self.hf_pretrained, "hf_config", None)
-        if hf_config is None:
-            if isinstance(self.hf_pretrained, PreTrainedCausalLM):
-                hf_config = self.hf_pretrained.config
-            else:
-                hf_config = self.hf_pretrained
-
-        return model_bridge.get_model_bridge(self._causal_lm_architecture, hf_config=hf_config)
+        return model_bridge.get_model_bridge(self._causal_lm_architecture)
 
     @property
     def _provider_bridge_input(self) -> PreTrainedCausalLM | _ConfigOnlyPretrainedShim:

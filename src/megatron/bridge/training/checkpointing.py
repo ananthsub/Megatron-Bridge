@@ -73,7 +73,6 @@ from megatron.bridge.training.utils.checkpoint_utils import (
     get_checkpoint_train_state_filename,
     read_run_config,
     read_train_state,
-    resolve_checkpoint_path,
 )
 from megatron.bridge.training.utils.log_utils import append_to_progress_log
 from megatron.bridge.training.utils.pg_utils import get_pg_collection
@@ -1658,7 +1657,6 @@ def load_model_weights(
     checkpoint formats.
 
     This function automatically:
-    - Resolves top-level checkpoint directories to the latest iteration
     - Detects the checkpoint format
     - Loads only model weights (no optimizer, RNG, or training state)
 
@@ -1671,9 +1669,7 @@ def load_model_weights(
 
     Args:
         model: The model(s) to load weights into.
-        checkpoint_path: Path to checkpoint. Can be either:
-            - A top-level checkpoint directory (loads latest iteration)
-            - A specific iteration directory (e.g., ``/path/to/checkpoint/iter_0000005``)
+        checkpoint_path: Path to the checkpoint directory directly containing model weights.
         fully_parallel_load: Apply full load parallelization across data parallel ranks.
             Only supported for ``torch_dist`` format; ignored for other formats.
         strict: Whether to enforce strict state dict loading.
@@ -1684,26 +1680,17 @@ def load_model_weights(
         Otherwise returns None.
 
     Raises:
-        FileNotFoundError: If no valid checkpoint is found at the path.
         NotImplementedError: If the checkpoint format is not supported.
 
     Example:
-        >>> # Load from a specific iteration
         >>> load_model_weights(model, "/checkpoints/iter_0000005")
-
-        >>> # Load latest checkpoint from a directory
-        >>> load_model_weights(model, "/checkpoints")
-
-        >>> # Get state dict for export
-        >>> state_dict = load_model_weights(model, "/checkpoints", return_state_dict=True)
+        >>> state_dict = load_model_weights(model, "/checkpoints/iter_0000005", return_state_dict=True)
     """
-    # Resolve to specific iteration directory
-    resolved_path = resolve_checkpoint_path(checkpoint_path)
-    ckpt_format = _get_checkpoint_format(resolved_path)
+    ckpt_format = _get_checkpoint_format(checkpoint_path)
 
     if ckpt_format == "torch_dist":
         return _load_model_weights_from_checkpoint(
-            resolved_path,
+            checkpoint_path,
             model,
             fully_parallel_load=fully_parallel_load,
             strict=strict,
@@ -1713,7 +1700,7 @@ def load_model_weights(
         if fully_parallel_load:
             print_rank_0("Warning: fully_parallel_load is not supported for fsdp_dtensor format, ignoring")
         return _load_model_weights_fsdp_dtensor(
-            model, resolved_path, strict=strict, return_state_dict=return_state_dict
+            model, checkpoint_path, strict=strict, return_state_dict=return_state_dict
         )
     else:
         raise NotImplementedError(

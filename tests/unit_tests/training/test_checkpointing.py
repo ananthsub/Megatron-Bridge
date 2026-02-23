@@ -1523,61 +1523,53 @@ class TestLoadModelWeights:
         model.sharded_state_dict.return_value = {"weight": torch.randn(10, 10)}
         return [model]
 
-    @patch("megatron.bridge.training.checkpointing.resolve_checkpoint_path")
     @patch("megatron.bridge.training.checkpointing._get_checkpoint_format")
     @patch("megatron.bridge.training.checkpointing._load_model_weights_from_checkpoint")
     def test_load_model_weights_torch_dist_format(
         self,
         mock_load_weights,
         mock_get_format,
-        mock_resolve_path,
         mock_model,
     ):
         """Test load_model_weights with torch_dist format."""
         from megatron.bridge.training.checkpointing import load_model_weights
 
-        mock_resolve_path.return_value = "/resolved/checkpoint/iter_0000005"
         mock_get_format.return_value = "torch_dist"
 
-        load_model_weights(mock_model, "/checkpoint")
+        load_model_weights(mock_model, "/checkpoint/iter_0000005")
 
-        mock_resolve_path.assert_called_once_with("/checkpoint")
-        mock_get_format.assert_called_once_with("/resolved/checkpoint/iter_0000005")
+        mock_get_format.assert_called_once_with("/checkpoint/iter_0000005")
         mock_load_weights.assert_called_once_with(
-            "/resolved/checkpoint/iter_0000005",
+            "/checkpoint/iter_0000005",
             mock_model,
             fully_parallel_load=False,
             strict=True,
             return_state_dict=False,
         )
 
-    @patch("megatron.bridge.training.checkpointing.resolve_checkpoint_path")
     @patch("megatron.bridge.training.checkpointing._get_checkpoint_format")
     @patch("megatron.bridge.training.checkpointing._load_model_weights_from_checkpoint")
     def test_load_model_weights_with_fully_parallel_load(
         self,
         mock_load_weights,
         mock_get_format,
-        mock_resolve_path,
         mock_model,
     ):
         """Test load_model_weights with fully_parallel_load enabled."""
         from megatron.bridge.training.checkpointing import load_model_weights
 
-        mock_resolve_path.return_value = "/resolved/checkpoint/iter_0000005"
         mock_get_format.return_value = "torch_dist"
 
-        load_model_weights(mock_model, "/checkpoint", fully_parallel_load=True)
+        load_model_weights(mock_model, "/checkpoint/iter_0000005", fully_parallel_load=True)
 
         mock_load_weights.assert_called_once_with(
-            "/resolved/checkpoint/iter_0000005",
+            "/checkpoint/iter_0000005",
             mock_model,
             fully_parallel_load=True,
             strict=True,
             return_state_dict=False,
         )
 
-    @patch("megatron.bridge.training.checkpointing.resolve_checkpoint_path")
     @patch("megatron.bridge.training.checkpointing._get_checkpoint_format")
     @patch("megatron.bridge.training.checkpointing._load_model_weights_fsdp_dtensor")
     @patch("megatron.bridge.training.checkpointing.print_rank_0")
@@ -1586,22 +1578,19 @@ class TestLoadModelWeights:
         mock_print,
         mock_load_fsdp,
         mock_get_format,
-        mock_resolve_path,
         mock_model,
     ):
         """Test load_model_weights with fsdp_dtensor format."""
         from megatron.bridge.training.checkpointing import load_model_weights
 
-        mock_resolve_path.return_value = "/resolved/checkpoint/iter_0000005"
         mock_get_format.return_value = "fsdp_dtensor"
 
-        load_model_weights(mock_model, "/checkpoint")
+        load_model_weights(mock_model, "/checkpoint/iter_0000005")
 
         mock_load_fsdp.assert_called_once_with(
-            mock_model, "/resolved/checkpoint/iter_0000005", strict=True, return_state_dict=False
+            mock_model, "/checkpoint/iter_0000005", strict=True, return_state_dict=False
         )
 
-    @patch("megatron.bridge.training.checkpointing.resolve_checkpoint_path")
     @patch("megatron.bridge.training.checkpointing._get_checkpoint_format")
     @patch("megatron.bridge.training.checkpointing._load_model_weights_fsdp_dtensor")
     @patch("megatron.bridge.training.checkpointing.print_rank_0")
@@ -1610,43 +1599,38 @@ class TestLoadModelWeights:
         mock_print,
         mock_load_fsdp,
         mock_get_format,
-        mock_resolve_path,
         mock_model,
     ):
         """Test that fully_parallel_load with fsdp_dtensor logs a warning."""
         from megatron.bridge.training.checkpointing import load_model_weights
 
-        mock_resolve_path.return_value = "/resolved/checkpoint/iter_0000005"
         mock_get_format.return_value = "fsdp_dtensor"
 
-        load_model_weights(mock_model, "/checkpoint", fully_parallel_load=True)
+        load_model_weights(mock_model, "/checkpoint/iter_0000005", fully_parallel_load=True)
 
         # Should warn about unsupported fully_parallel_load
         mock_print.assert_called()
         warning_calls = [call for call in mock_print.call_args_list if "fully_parallel_load" in str(call)]
         assert len(warning_calls) > 0
 
-    @patch("megatron.bridge.training.checkpointing.resolve_checkpoint_path")
     @patch("megatron.bridge.training.checkpointing._get_checkpoint_format")
     @patch("megatron.bridge.training.checkpointing._load_model_weights_from_checkpoint")
     def test_load_model_weights_return_state_dict_torch_dist(
         self,
         mock_load_weights,
         mock_get_format,
-        mock_resolve_path,
         mock_model,
     ):
         """Test load_model_weights with return_state_dict=True for torch_dist."""
         from megatron.bridge.training.checkpointing import load_model_weights
 
-        mock_resolve_path.return_value = "/resolved/checkpoint/iter_0000005"
         mock_get_format.return_value = "torch_dist"
         mock_load_weights.return_value = {"model": {"weight": torch.randn(10, 10)}}
 
-        result = load_model_weights(mock_model, "/checkpoint", return_state_dict=True)
+        result = load_model_weights(mock_model, "/checkpoint/iter_0000005", return_state_dict=True)
 
         mock_load_weights.assert_called_once_with(
-            "/resolved/checkpoint/iter_0000005",
+            "/checkpoint/iter_0000005",
             mock_model,
             fully_parallel_load=False,
             strict=True,
@@ -1654,7 +1638,6 @@ class TestLoadModelWeights:
         )
         assert result is not None
 
-    @patch("megatron.bridge.training.checkpointing.resolve_checkpoint_path")
     @patch("megatron.bridge.training.checkpointing._get_checkpoint_format")
     @patch("megatron.bridge.training.checkpointing._load_model_weights_fsdp_dtensor")
     @patch("megatron.bridge.training.checkpointing.print_rank_0")
@@ -1663,53 +1646,34 @@ class TestLoadModelWeights:
         mock_print,
         mock_load_fsdp,
         mock_get_format,
-        mock_resolve_path,
         mock_model,
     ):
         """Test load_model_weights with return_state_dict=True for fsdp_dtensor."""
         from megatron.bridge.training.checkpointing import load_model_weights
 
-        mock_resolve_path.return_value = "/resolved/checkpoint/iter_0000005"
         mock_get_format.return_value = "fsdp_dtensor"
         mock_load_fsdp.return_value = {"model": {"weight": torch.randn(10, 10)}}
 
-        result = load_model_weights(mock_model, "/checkpoint", return_state_dict=True)
+        result = load_model_weights(mock_model, "/checkpoint/iter_0000005", return_state_dict=True)
 
         mock_load_fsdp.assert_called_once_with(
-            mock_model, "/resolved/checkpoint/iter_0000005", strict=True, return_state_dict=True
+            mock_model, "/checkpoint/iter_0000005", strict=True, return_state_dict=True
         )
         assert result is not None
 
-    @patch("megatron.bridge.training.checkpointing.resolve_checkpoint_path")
     @patch("megatron.bridge.training.checkpointing._get_checkpoint_format")
     def test_load_model_weights_unsupported_format_raises(
         self,
         mock_get_format,
-        mock_resolve_path,
         mock_model,
     ):
         """Test that unsupported checkpoint format raises NotImplementedError."""
         from megatron.bridge.training.checkpointing import load_model_weights
 
-        mock_resolve_path.return_value = "/resolved/checkpoint/iter_0000005"
         mock_get_format.return_value = "unsupported_format"
 
         with pytest.raises(NotImplementedError, match="unsupported_format"):
-            load_model_weights(mock_model, "/checkpoint")
-
-    @patch("megatron.bridge.training.checkpointing.resolve_checkpoint_path")
-    def test_load_model_weights_path_resolution_error_propagates(
-        self,
-        mock_resolve_path,
-        mock_model,
-    ):
-        """Test that path resolution errors propagate correctly."""
-        from megatron.bridge.training.checkpointing import load_model_weights
-
-        mock_resolve_path.side_effect = FileNotFoundError("No checkpoint found")
-
-        with pytest.raises(FileNotFoundError, match="No checkpoint found"):
-            load_model_weights(mock_model, "/nonexistent/checkpoint")
+            load_model_weights(mock_model, "/checkpoint/iter_0000005")
 
 
 class TestConvertDTensorStateDict:
