@@ -125,17 +125,16 @@ class TestLoadModelWeightsE2E:
         _randomize_weights(model2)
 
         for name in original:
-            assert not torch.equal(
-                model2[0].state_dict()[name].cpu(), original[name]
-            ), f"Weights for '{name}' should differ before load"
+            assert not torch.equal(model2[0].state_dict()[name].cpu(), original[name]), (
+                f"Weights for '{name}' should differ before load"
+            )
 
         load_model_weights(model2, ckpt_path)
 
         for name, expected in original.items():
             actual = model2[0].state_dict()[name].cpu()
             assert torch.allclose(actual, expected, atol=1e-6), (
-                f"torch_dist weight mismatch for '{name}': "
-                f"max diff = {(actual - expected).abs().max().item():.2e}"
+                f"torch_dist weight mismatch for '{name}': max diff = {(actual - expected).abs().max().item():.2e}"
             )
 
     @pytest.mark.run_only_on("GPU")
@@ -178,17 +177,16 @@ class TestLoadModelWeightsE2E:
         _randomize_weights(model2)
 
         for name in original:
-            assert not torch.equal(
-                model2[0].state_dict()[name].cpu(), original[name]
-            ), f"Weights for '{name}' should differ before load"
+            assert not torch.equal(model2[0].state_dict()[name].cpu(), original[name]), (
+                f"Weights for '{name}' should differ before load"
+            )
 
         load_model_weights(model2, ckpt_path)
 
         for name, expected in original.items():
             actual = model2[0].state_dict()[name].cpu()
             assert torch.allclose(actual, expected, atol=1e-6), (
-                f"fsdp_dtensor weight mismatch for '{name}': "
-                f"max diff = {(actual - expected).abs().max().item():.2e}"
+                f"fsdp_dtensor weight mismatch for '{name}': max diff = {(actual - expected).abs().max().item():.2e}"
             )
 
     @pytest.mark.run_only_on("GPU")
