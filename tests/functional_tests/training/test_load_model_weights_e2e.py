@@ -92,6 +92,12 @@ class TestLoadModelWeightsE2E:
             pg_collection=pg_collection,
         )
 
+        yield
+
+        from megatron.core.rerun_state_machine import destroy_rerun_state_machine
+
+        destroy_rerun_state_machine()
+
     @pytest.fixture()
     def shared_tmp_dir(self):
         """Create a temp directory on rank 0 and broadcast the path to all ranks."""
