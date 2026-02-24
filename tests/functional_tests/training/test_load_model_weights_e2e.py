@@ -32,7 +32,7 @@ from megatron.core.process_groups_config import ProcessGroupCollection
 from megatron.core.transformer.module import MegatronModule
 
 from megatron.bridge.models.gpt_provider import GPTModelProvider
-from megatron.bridge.training.checkpointing import HAVE_MEGATRON_FSDP, load_model_weights
+from megatron.bridge.training.checkpointing import load_model_weights
 from megatron.bridge.training.model_load_save import save_megatron_model
 from tests.functional_tests.utils import broadcast_path, clear_directories, initialize_distributed
 
@@ -153,59 +153,6 @@ class TestLoadModelWeightsE2E:
         original = _snapshot_weights(model)
 
         save_megatron_model(model, save_dir, ckpt_format="torch_dist")
-
-        state_dict = load_model_weights(model, ckpt_path, return_state_dict=True)
-
-        assert state_dict is not None, "return_state_dict=True should return a dict"
-        assert "model" in state_dict, "state dict must contain 'model' key"
-
-        for name in original:
-            assert name in state_dict["model"], f"Key '{name}' missing from returned state dict"
-
-    # ------------------------------------------------------------------
-    # fsdp_dtensor format
-    # ------------------------------------------------------------------
-
-    @pytest.mark.run_only_on("GPU")
-    @pytest.mark.skipif(not HAVE_MEGATRON_FSDP, reason="Megatron FSDP modules not available")
-    def test_fsdp_dtensor_save_load_roundtrip(self, shared_tmp_dir):
-        """Weights survive an fsdp_dtensor save -> load_model_weights cycle."""
-        save_dir = os.path.join(shared_tmp_dir, "checkpoint")
-        ckpt_path = os.path.join(save_dir, "iter_0000000")
-
-        model = _create_gpt_model()
-        original = _snapshot_weights(model)
-
-        save_megatron_model(model, save_dir, ckpt_format="fsdp_dtensor")
-        assert os.path.isdir(ckpt_path), f"Checkpoint dir not created at {ckpt_path}"
-
-        model2 = _create_gpt_model()
-        _randomize_weights(model2)
-
-        for name in original:
-            assert not torch.equal(model2[0].state_dict()[name].cpu(), original[name]), (
-                f"Weights for '{name}' should differ before load"
-            )
-
-        load_model_weights(model2, ckpt_path)
-
-        for name, expected in original.items():
-            actual = model2[0].state_dict()[name].cpu()
-            assert torch.allclose(actual, expected, atol=1e-6), (
-                f"fsdp_dtensor weight mismatch for '{name}': max diff = {(actual - expected).abs().max().item():.2e}"
-            )
-
-    @pytest.mark.run_only_on("GPU")
-    @pytest.mark.skipif(not HAVE_MEGATRON_FSDP, reason="Megatron FSDP modules not available")
-    def test_fsdp_dtensor_return_state_dict(self, shared_tmp_dir):
-        """load_model_weights returns a state dict from an fsdp_dtensor checkpoint."""
-        save_dir = os.path.join(shared_tmp_dir, "checkpoint")
-        ckpt_path = os.path.join(save_dir, "iter_0000000")
-
-        model = _create_gpt_model()
-        original = _snapshot_weights(model)
-
-        save_megatron_model(model, save_dir, ckpt_format="fsdp_dtensor")
 
         state_dict = load_model_weights(model, ckpt_path, return_state_dict=True)
 

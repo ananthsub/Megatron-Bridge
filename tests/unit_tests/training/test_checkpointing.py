@@ -1523,22 +1523,17 @@ class TestLoadModelWeights:
         model.sharded_state_dict.return_value = {"weight": torch.randn(10, 10)}
         return [model]
 
-    @patch("megatron.bridge.training.checkpointing._get_checkpoint_format")
     @patch("megatron.bridge.training.checkpointing._load_model_weights_from_checkpoint")
-    def test_load_model_weights_torch_dist_format(
+    def test_load_model_weights_delegates_to_loader(
         self,
         mock_load_weights,
-        mock_get_format,
         mock_model,
     ):
-        """Test load_model_weights with torch_dist format."""
+        """Test load_model_weights delegates to _load_model_weights_from_checkpoint."""
         from megatron.bridge.training.checkpointing import load_model_weights
-
-        mock_get_format.return_value = "torch_dist"
 
         load_model_weights(mock_model, "/checkpoint/iter_0000005")
 
-        mock_get_format.assert_called_once_with("/checkpoint/iter_0000005")
         mock_load_weights.assert_called_once_with(
             "/checkpoint/iter_0000005",
             mock_model,
@@ -1547,18 +1542,14 @@ class TestLoadModelWeights:
             return_state_dict=False,
         )
 
-    @patch("megatron.bridge.training.checkpointing._get_checkpoint_format")
     @patch("megatron.bridge.training.checkpointing._load_model_weights_from_checkpoint")
     def test_load_model_weights_with_fully_parallel_load(
         self,
         mock_load_weights,
-        mock_get_format,
         mock_model,
     ):
         """Test load_model_weights with fully_parallel_load enabled."""
         from megatron.bridge.training.checkpointing import load_model_weights
-
-        mock_get_format.return_value = "torch_dist"
 
         load_model_weights(mock_model, "/checkpoint/iter_0000005", fully_parallel_load=True)
 
@@ -1570,61 +1561,15 @@ class TestLoadModelWeights:
             return_state_dict=False,
         )
 
-    @patch("megatron.bridge.training.checkpointing._get_checkpoint_format")
-    @patch("megatron.bridge.training.checkpointing._load_model_weights_fsdp_dtensor")
-    @patch("megatron.bridge.training.checkpointing.print_rank_0")
-    def test_load_model_weights_fsdp_dtensor_format(
-        self,
-        mock_print,
-        mock_load_fsdp,
-        mock_get_format,
-        mock_model,
-    ):
-        """Test load_model_weights with fsdp_dtensor format."""
-        from megatron.bridge.training.checkpointing import load_model_weights
-
-        mock_get_format.return_value = "fsdp_dtensor"
-
-        load_model_weights(mock_model, "/checkpoint/iter_0000005")
-
-        mock_load_fsdp.assert_called_once_with(
-            mock_model, "/checkpoint/iter_0000005", strict=True, return_state_dict=False
-        )
-
-    @patch("megatron.bridge.training.checkpointing._get_checkpoint_format")
-    @patch("megatron.bridge.training.checkpointing._load_model_weights_fsdp_dtensor")
-    @patch("megatron.bridge.training.checkpointing.print_rank_0")
-    def test_load_model_weights_fsdp_dtensor_warns_on_fully_parallel(
-        self,
-        mock_print,
-        mock_load_fsdp,
-        mock_get_format,
-        mock_model,
-    ):
-        """Test that fully_parallel_load with fsdp_dtensor logs a warning."""
-        from megatron.bridge.training.checkpointing import load_model_weights
-
-        mock_get_format.return_value = "fsdp_dtensor"
-
-        load_model_weights(mock_model, "/checkpoint/iter_0000005", fully_parallel_load=True)
-
-        # Should warn about unsupported fully_parallel_load
-        mock_print.assert_called()
-        warning_calls = [call for call in mock_print.call_args_list if "fully_parallel_load" in str(call)]
-        assert len(warning_calls) > 0
-
-    @patch("megatron.bridge.training.checkpointing._get_checkpoint_format")
     @patch("megatron.bridge.training.checkpointing._load_model_weights_from_checkpoint")
-    def test_load_model_weights_return_state_dict_torch_dist(
+    def test_load_model_weights_return_state_dict(
         self,
         mock_load_weights,
-        mock_get_format,
         mock_model,
     ):
-        """Test load_model_weights with return_state_dict=True for torch_dist."""
+        """Test load_model_weights with return_state_dict=True."""
         from megatron.bridge.training.checkpointing import load_model_weights
 
-        mock_get_format.return_value = "torch_dist"
         mock_load_weights.return_value = {"model": {"weight": torch.randn(10, 10)}}
 
         result = load_model_weights(mock_model, "/checkpoint/iter_0000005", return_state_dict=True)
@@ -1637,80 +1582,6 @@ class TestLoadModelWeights:
             return_state_dict=True,
         )
         assert result is not None
-
-    @patch("megatron.bridge.training.checkpointing._get_checkpoint_format")
-    @patch("megatron.bridge.training.checkpointing._load_model_weights_fsdp_dtensor")
-    @patch("megatron.bridge.training.checkpointing.print_rank_0")
-    def test_load_model_weights_return_state_dict_fsdp_dtensor(
-        self,
-        mock_print,
-        mock_load_fsdp,
-        mock_get_format,
-        mock_model,
-    ):
-        """Test load_model_weights with return_state_dict=True for fsdp_dtensor."""
-        from megatron.bridge.training.checkpointing import load_model_weights
-
-        mock_get_format.return_value = "fsdp_dtensor"
-        mock_load_fsdp.return_value = {"model": {"weight": torch.randn(10, 10)}}
-
-        result = load_model_weights(mock_model, "/checkpoint/iter_0000005", return_state_dict=True)
-
-        mock_load_fsdp.assert_called_once_with(
-            mock_model, "/checkpoint/iter_0000005", strict=True, return_state_dict=True
-        )
-        assert result is not None
-
-    @patch("megatron.bridge.training.checkpointing._get_checkpoint_format")
-    def test_load_model_weights_unsupported_format_raises(
-        self,
-        mock_get_format,
-        mock_model,
-    ):
-        """Test that unsupported checkpoint format raises NotImplementedError."""
-        from megatron.bridge.training.checkpointing import load_model_weights
-
-        mock_get_format.return_value = "unsupported_format"
-
-        with pytest.raises(NotImplementedError, match="unsupported_format"):
-            load_model_weights(mock_model, "/checkpoint/iter_0000005")
-
-
-class TestConvertDTensorStateDict:
-    """Test the _convert_dtensor_state_dict_to_full function."""
-
-    def test_convert_regular_tensors_unchanged(self):
-        """Test that regular tensors pass through unchanged."""
-        from megatron.bridge.training.checkpointing import _convert_dtensor_state_dict_to_full
-
-        state_dict = {
-            "model": {
-                "weight": torch.randn(10, 10),
-                "bias": torch.randn(10),
-            }
-        }
-        result = _convert_dtensor_state_dict_to_full(state_dict)
-
-        assert "model" in result
-        assert torch.equal(result["model"]["weight"], state_dict["model"]["weight"])
-        assert torch.equal(result["model"]["bias"], state_dict["model"]["bias"])
-
-    def test_convert_nested_structure(self):
-        """Test conversion handles nested dicts and lists."""
-        from megatron.bridge.training.checkpointing import _convert_dtensor_state_dict_to_full
-
-        state_dict = {
-            "model": {
-                "layers": [
-                    {"weight": torch.randn(5, 5)},
-                    {"weight": torch.randn(5, 5)},
-                ]
-            }
-        }
-        result = _convert_dtensor_state_dict_to_full(state_dict)
-
-        assert len(result["model"]["layers"]) == 2
-        assert "weight" in result["model"]["layers"][0]
 
 
 class TestMegatronLMCompatibility:
