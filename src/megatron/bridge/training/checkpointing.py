@@ -1298,36 +1298,6 @@ def _load_model_weights_from_checkpoint(
         torch.distributed.barrier()
 
 
-def _load_fsdp_dtensor_state_dict(
-    checkpoint_path: str,
-    state_dict: dict[str, Any],
-    strict: bool = False,
-) -> dict[str, Any]:
-    """Load a state dict from an FSDP DTensor checkpoint using PyTorch DCP.
-
-    Args:
-        checkpoint_path: Full path to the checkpoint directory.
-        state_dict: Pre-built state dict with DTensor placeholders to load into.
-        strict: If True, require exact key match. If False, allow partial loading.
-
-    Returns:
-        The loaded state dict (modified in-place).
-    """
-    fs_storage_reader = torch.distributed.checkpoint.FileSystemReader(checkpoint_path)
-
-    if not strict:
-        state_dict_metadata = fs_storage_reader.read_metadata().state_dict_metadata
-        print_diff_in_state_dicts(state_dict_metadata, state_dict)
-
-    planner = torch.distributed.checkpoint.default_planner.DefaultLoadPlanner(allow_partial_load=not strict)
-    torch.distributed.checkpoint.load_state_dict(
-        state_dict=state_dict,
-        storage_reader=fs_storage_reader,
-        planner=planner,
-    )
-    return state_dict
-
-
 def load_model_weights(
     model: list[MegatronModule],
     checkpoint_path: str,
@@ -2310,8 +2280,24 @@ def _load_fsdp_dtensor_base_checkpoint(
     state_dict = preprocess_fsdp_dtensor_state_dict(cfg, state_dict, model[0])
 
     checkpoint_name = get_checkpoint_name(load_dir, iteration, release)
-    strict = getattr(ckpt_cfg, "strict_fsdp_dtensor_load", False)
-    state_dict = _load_fsdp_dtensor_state_dict(checkpoint_name, state_dict, strict=strict)
+    fs_storage_reader = torch.distributed.checkpoint.FileSystemReader(checkpoint_name)
+
+    # Configure partial loading based on strict_fsdp_dtensor_load setting
+    allow_partial_load = not getattr(ckpt_cfg, "strict_fsdp_dtensor_load", False)
+    if allow_partial_load:
+        state_dict_metadata = fs_storage_reader.read_metadata().state_dict_metadata
+        rank = torch.distributed.get_rank()
+        import time as _time
+
+        _time.sleep(rank * 0.001)  # Prevent log overlap across ranks
+        print_diff_in_state_dicts(state_dict_metadata, state_dict)
+
+    planner = torch.distributed.checkpoint.default_planner.DefaultLoadPlanner(allow_partial_load=allow_partial_load)
+    torch.distributed.checkpoint.load_state_dict(
+        state_dict=state_dict,
+        storage_reader=fs_storage_reader,
+        planner=planner,
+    )
 
     # Restore raw state dicts to maintain original structure for the rest of the load process
     if raw_optimizer_state_dict is not None:
