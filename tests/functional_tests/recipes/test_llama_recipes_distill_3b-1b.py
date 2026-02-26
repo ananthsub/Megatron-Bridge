@@ -163,11 +163,11 @@ def run_distill_recipe_test(
 
         # Basic verification that training completed successfully
         verify_checkpoint_files(
-        config.checkpoint.save,
-        10,
-        ckpt_format=config.checkpoint.ckpt_format,
-        thread_count=config.checkpoint.thread_count,
-    )
+            config.checkpoint.save,
+            10,
+            ckpt_format=config.checkpoint.ckpt_format,
+            thread_count=config.checkpoint.thread_count,
+        )
 
     finally:
         clear_directories(tmp_path)

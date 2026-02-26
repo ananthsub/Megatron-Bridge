@@ -102,8 +102,10 @@ def clear_directories(path: str) -> None:
         torch.distributed.barrier()
 
 
-def verify_checkpoint_files(checkpoint_dir: str, iteration_count: int, ckpt_format: str = "torch_dist", thread_count: int = 2) -> None:
-    """Verify that checkpoint files were created correctly for different checkpoint formats.
+def verify_checkpoint_files(
+    checkpoint_dir: str, iteration_count: int, ckpt_format: str = "torch_dist", thread_count: int = 2
+) -> None:
+    """Verify that checkpoint files were created correctly.
 
     Args:
         checkpoint_dir: Directory containing checkpoints
