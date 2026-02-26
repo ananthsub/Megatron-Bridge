@@ -852,7 +852,7 @@ class CheckpointConfig:
     use_checkpoint_args: bool = False
     """Override any command line arguments with arguments from the checkpoint"""
 
-    thread_count: int = 2
+    thread_count: int = 1
     """Number of threads to use during saving (torch_dist format only).
     Affects the number of checkpoint files: saving_ranks * thread_count."""
 
