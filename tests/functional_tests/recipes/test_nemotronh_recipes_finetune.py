@@ -300,7 +300,12 @@ class TestNemotronNanoV2FinetuneRecipes:
             finetune(config, forward_step)
 
             # Verify checkpoints were saved
-            verify_checkpoint_files(config.checkpoint.save, config.train.train_iters)
+            verify_checkpoint_files(
+                config.checkpoint.save,
+                config.train.train_iters,
+                ckpt_format=config.checkpoint.ckpt_format,
+                thread_count=config.checkpoint.thread_count,
+            )
 
         finally:
             clear_directories(tmp_path)
@@ -573,7 +578,12 @@ class TestNemotron3NanoFinetuneRecipes:
             finetune(config, forward_step)
 
             # Verify checkpoints were saved
-            verify_checkpoint_files(config.checkpoint.save, config.train.train_iters)
+            verify_checkpoint_files(
+                config.checkpoint.save,
+                config.train.train_iters,
+                ckpt_format=config.checkpoint.ckpt_format,
+                thread_count=config.checkpoint.thread_count,
+            )
 
         finally:
             clear_directories(tmp_path)

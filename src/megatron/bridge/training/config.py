@@ -852,6 +852,10 @@ class CheckpointConfig:
     use_checkpoint_args: bool = False
     """Override any command line arguments with arguments from the checkpoint"""
 
+    thread_count: int = 2
+    """Number of threads to use during saving (torch_dist format only).
+    Affects the number of checkpoint files: saving_ranks * thread_count."""
+
     exit_on_missing_checkpoint: bool = False
     """If 'load' is set, but checkpoint is not found (e.g., path typo), then exit instead of random initialization."""
 

@@ -102,13 +102,15 @@ def clear_directories(path: str) -> None:
         torch.distributed.barrier()
 
 
-def verify_checkpoint_files(checkpoint_dir: str, iteration_count: int, ckpt_format: str = "torch_dist") -> None:
+def verify_checkpoint_files(checkpoint_dir: str, iteration_count: int, ckpt_format: str = "torch_dist", thread_count: int = 2) -> None:
     """Verify that checkpoint files were created correctly for different checkpoint formats.
 
     Args:
         checkpoint_dir: Directory containing checkpoints
         iteration_count: Expected iteration number for the checkpoint
         ckpt_format: Checkpoint format ("torch_dist", "fsdp_dtensor", etc.)
+        thread_count: Threads used during save (torch_dist only). Pass config.checkpoint.thread_count.
+            Affects expected file count: world_size * thread_count.
     """
     if torch.distributed.is_initialized():
         torch.distributed.barrier()
@@ -139,7 +141,7 @@ def verify_checkpoint_files(checkpoint_dir: str, iteration_count: int, ckpt_form
         distcp_files = [f for f in os.listdir(final_iter_dir) if f.endswith(".distcp")]
 
         if ckpt_format == "torch_dist":
-            num_expected_files = 2 * torch.distributed.get_world_size()
+            num_expected_files = thread_count * torch.distributed.get_world_size()
         elif ckpt_format == "fsdp_dtensor":
             # fsdp_dtensor format creates .distcp files (one per rank)
             num_expected_files = torch.distributed.get_world_size()
@@ -147,7 +149,7 @@ def verify_checkpoint_files(checkpoint_dir: str, iteration_count: int, ckpt_form
             raise ValueError(f"Unsupported checkpoint format for verification: {ckpt_format}")
 
         assert len(distcp_files) == num_expected_files, (
-            f"Expected {num_expected_files} .distcp files for fsdp_dtensor, found {len(distcp_files)}: {distcp_files}"
+            f"Expected {num_expected_files} .distcp files for {ckpt_format}, found {len(distcp_files)}: {distcp_files}"
         )
 
 

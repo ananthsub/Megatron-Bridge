@@ -79,7 +79,12 @@ class TestSupervisedFinetuning:
                 pretrain_iters, pretrain_checkpoint_dir, pretrain_tensorboard_dir, seq_length
             )
             pretrain(pretrain_cfg, forward_step)
-            verify_checkpoint_files(pretrain_checkpoint_dir, pretrain_iters)
+            verify_checkpoint_files(
+                pretrain_checkpoint_dir,
+                pretrain_iters,
+                ckpt_format=pretrain_cfg.checkpoint.ckpt_format,
+                thread_count=pretrain_cfg.checkpoint.thread_count,
+            )
 
             # Create finetune config and run (lower LR, different seed, use pretrained checkpoint)
             finetune_cfg = self._create_config(
@@ -92,7 +97,12 @@ class TestSupervisedFinetuning:
                 pretrained_checkpoint=pretrain_checkpoint_dir,
             )
             finetune(finetune_cfg, forward_step)
-            verify_checkpoint_files(finetune_checkpoint_dir, finetune_iters)
+            verify_checkpoint_files(
+                finetune_checkpoint_dir,
+                finetune_iters,
+                ckpt_format=finetune_cfg.checkpoint.ckpt_format,
+                thread_count=finetune_cfg.checkpoint.thread_count,
+            )
 
         finally:
             clear_directories(shared_base_dir)

@@ -272,7 +272,12 @@ class TestGPTOSSFinetuneRecipes:
             finetune(config, forward_step)
 
             # Verify checkpoints were saved
-            verify_checkpoint_files(config.checkpoint.save, 5)
+            verify_checkpoint_files(
+                config.checkpoint.save,
+                5,
+                ckpt_format=config.checkpoint.ckpt_format,
+                thread_count=config.checkpoint.thread_count,
+            )
 
         finally:
             clear_directories(tmp_path)
