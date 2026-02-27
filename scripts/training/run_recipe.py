@@ -84,7 +84,8 @@ TRAIN_MODES = {
 ERR_UNKNOWN_STEP = "Unknown step type: {step_type}. Choose from: {choices}"
 ERR_INFER_MODE_FAILED = (
     "Unable to infer training mode from recipe name. "
-    "Please include 'pretrain' or 'finetune' in the recipe name or pass --mode explicitly."
+    "Please include 'pretrain' or 'finetune' (or 'sft'/'peft') in the recipe name, "
+    "or pass --mode explicitly."
 )
 
 
@@ -209,7 +210,7 @@ def infer_train_mode(recipe_name: str) -> str:
     """Infer training mode from the recipe name."""
     lowered = recipe_name.lower()
     has_pretrain = "pretrain" in lowered
-    has_finetune = "finetune" in lowered
+    has_finetune = "finetune" in lowered or "sft" in lowered or "peft" in lowered
     if has_pretrain ^ has_finetune:
         return "pretrain" if has_pretrain else "finetune"
     raise ValueError(ERR_INFER_MODE_FAILED)
