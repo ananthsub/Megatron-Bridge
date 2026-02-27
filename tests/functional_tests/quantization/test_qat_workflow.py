@@ -304,7 +304,7 @@ class TestQATWorkflow:
             # this is dictated by the checkpoint config's default value for storage_writers_per_rank
             expected_distcp_files = world_size
             assert len(distcp_files) == expected_distcp_files, (
-                f"Expected {expected_distcp_files} .distcp files (2 * {world_size} world_size), "
+                f"Expected {expected_distcp_files} .distcp files with {world_size} world_size), "
                 f"found {len(distcp_files)}: {distcp_files}"
             )
             print(
