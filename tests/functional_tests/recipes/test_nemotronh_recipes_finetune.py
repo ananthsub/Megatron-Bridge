@@ -304,7 +304,7 @@ class TestNemotronNanoV2FinetuneRecipes:
                 config.checkpoint.save,
                 config.train.train_iters,
                 ckpt_format=config.checkpoint.ckpt_format,
-                thread_count=config.checkpoint.thread_count,
+                storage_writers_per_rank=config.checkpoint.storage_writers_per_rank,
             )
 
         finally:
@@ -582,7 +582,7 @@ class TestNemotron3NanoFinetuneRecipes:
                 config.checkpoint.save,
                 config.train.train_iters,
                 ckpt_format=config.checkpoint.ckpt_format,
-                thread_count=config.checkpoint.thread_count,
+                storage_writers_per_rank=config.checkpoint.storage_writers_per_rank,
             )
 
         finally:

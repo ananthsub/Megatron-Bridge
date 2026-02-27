@@ -166,7 +166,7 @@ def run_distill_recipe_test(
             config.checkpoint.save,
             10,
             ckpt_format=config.checkpoint.ckpt_format,
-            thread_count=config.checkpoint.thread_count,
+            storage_writers_per_rank=config.checkpoint.storage_writers_per_rank,
         )
 
     finally:

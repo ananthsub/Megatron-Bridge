@@ -652,7 +652,7 @@ def save_checkpoint(
                     save_strategy = TorchDistSaveShardedStrategy(
                         "torch_dist",
                         1,
-                        thread_count=ckpt_cfg.thread_count,
+                        thread_count=ckpt_cfg.storage_writers_per_rank,
                     )
                 else:
                     save_strategy = get_default_save_sharded_strategy(ckpt_cfg.ckpt_format)

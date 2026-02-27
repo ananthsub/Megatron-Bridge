@@ -83,7 +83,7 @@ class TestSupervisedFinetuning:
                 pretrain_checkpoint_dir,
                 pretrain_iters,
                 ckpt_format=pretrain_cfg.checkpoint.ckpt_format,
-                thread_count=pretrain_cfg.checkpoint.thread_count,
+                storage_writers_per_rank=pretrain_cfg.checkpoint.storage_writers_per_rank,
             )
 
             # Create finetune config and run (lower LR, different seed, use pretrained checkpoint)
@@ -101,7 +101,7 @@ class TestSupervisedFinetuning:
                 finetune_checkpoint_dir,
                 finetune_iters,
                 ckpt_format=finetune_cfg.checkpoint.ckpt_format,
-                thread_count=finetune_cfg.checkpoint.thread_count,
+                storage_writers_per_rank=finetune_cfg.checkpoint.storage_writers_per_rank,
             )
 
         finally:

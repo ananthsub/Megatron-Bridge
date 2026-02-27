@@ -103,7 +103,7 @@ class TestPeftSftExample:
                 checkpoint_dir,
                 cfg.train.train_iters,
                 ckpt_format=cfg.checkpoint.ckpt_format,
-                thread_count=cfg.checkpoint.thread_count,
+                storage_writers_per_rank=cfg.checkpoint.storage_writers_per_rank,
             )
         finally:
             clear_directories(shared_dir)

@@ -123,7 +123,7 @@ def run_pretrain_recipe_test(
             config.checkpoint.save,
             10,
             ckpt_format=config.checkpoint.ckpt_format,
-            thread_count=config.checkpoint.thread_count,
+            storage_writers_per_rank=config.checkpoint.storage_writers_per_rank,
         )
 
     finally:
@@ -291,7 +291,7 @@ def run_pretrain_vl_recipe_test(
             config.checkpoint.save,
             config.train.train_iters,
             ckpt_format=config.checkpoint.ckpt_format,
-            thread_count=config.checkpoint.thread_count,
+            storage_writers_per_rank=config.checkpoint.storage_writers_per_rank,
         )
 
     finally:

@@ -103,7 +103,10 @@ def clear_directories(path: str) -> None:
 
 
 def verify_checkpoint_files(
-    checkpoint_dir: str, iteration_count: int, ckpt_format: str = "torch_dist", thread_count: int = 2
+    checkpoint_dir: str,
+    iteration_count: int,
+    ckpt_format: str = "torch_dist",
+    storage_writers_per_rank: int = 1,
 ) -> None:
     """Verify that checkpoint files were created correctly.
 
@@ -111,8 +114,9 @@ def verify_checkpoint_files(
         checkpoint_dir: Directory containing checkpoints
         iteration_count: Expected iteration number for the checkpoint
         ckpt_format: Checkpoint format ("torch_dist", "fsdp_dtensor", etc.)
-        thread_count: Threads used during save (torch_dist only). Pass config.checkpoint.thread_count.
-            Affects expected file count: world_size * thread_count.
+        storage_writers_per_rank: Storage writers per rank (torch_dist only).
+            Pass config.checkpoint.storage_writers_per_rank.
+            Affects expected file count: world_size * storage_writers_per_rank.
     """
     if torch.distributed.is_initialized():
         torch.distributed.barrier()
@@ -143,7 +147,7 @@ def verify_checkpoint_files(
         distcp_files = [f for f in os.listdir(final_iter_dir) if f.endswith(".distcp")]
 
         if ckpt_format == "torch_dist":
-            num_expected_files = thread_count * torch.distributed.get_world_size()
+            num_expected_files = storage_writers_per_rank * torch.distributed.get_world_size()
         elif ckpt_format == "fsdp_dtensor":
             # fsdp_dtensor format creates .distcp files (one per rank)
             num_expected_files = torch.distributed.get_world_size()

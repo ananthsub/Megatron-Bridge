@@ -91,7 +91,7 @@ class TestLoRAFinetune:
                 pretrain_checkpoint_dir,
                 pretrain_iters,
                 ckpt_format=pretrain_cfg.checkpoint.ckpt_format,
-                thread_count=pretrain_cfg.checkpoint.thread_count,
+                storage_writers_per_rank=pretrain_cfg.checkpoint.storage_writers_per_rank,
             )
 
             # Create LoRA config and run finetuning
@@ -103,7 +103,7 @@ class TestLoRAFinetune:
                 lora_checkpoint_dir,
                 lora_iters,
                 ckpt_format=lora_cfg.checkpoint.ckpt_format,
-                thread_count=lora_cfg.checkpoint.thread_count,
+                storage_writers_per_rank=lora_cfg.checkpoint.storage_writers_per_rank,
             )
             verify_peft_checkpoint_smaller(pretrain_checkpoint_dir, lora_checkpoint_dir, pretrain_iters, lora_iters)
 
@@ -143,7 +143,7 @@ class TestLoRAFinetune:
                 pretrain_checkpoint_dir,
                 pretrain_iters,
                 ckpt_format=pretrain_cfg.checkpoint.ckpt_format,
-                thread_count=pretrain_cfg.checkpoint.thread_count,
+                storage_writers_per_rank=pretrain_cfg.checkpoint.storage_writers_per_rank,
             )
 
             # Second run: LoRA finetuning initial phase (will be "interrupted")
@@ -165,7 +165,7 @@ class TestLoRAFinetune:
                 lora_checkpoint_dir,
                 initial_lora_iters,
                 ckpt_format=lora_initial_cfg.checkpoint.ckpt_format,
-                thread_count=lora_initial_cfg.checkpoint.thread_count,
+                storage_writers_per_rank=lora_initial_cfg.checkpoint.storage_writers_per_rank,
             )
 
             # Third run: Resume LoRA finetuning from checkpoint (adapter-only states)
@@ -189,7 +189,7 @@ class TestLoRAFinetune:
                 lora_checkpoint_dir,
                 total_lora_iters,
                 ckpt_format=lora_resume_cfg.checkpoint.ckpt_format,
-                thread_count=lora_resume_cfg.checkpoint.thread_count,
+                storage_writers_per_rank=lora_resume_cfg.checkpoint.storage_writers_per_rank,
             )
             verify_peft_checkpoint_smaller(
                 pretrain_checkpoint_dir, lora_checkpoint_dir, pretrain_iters, initial_lora_iters
@@ -227,7 +227,7 @@ class TestLoRAFinetune:
                 pretrain_checkpoint_dir,
                 pretrain_iters,
                 ckpt_format=pretrain_cfg.checkpoint.ckpt_format,
-                thread_count=pretrain_cfg.checkpoint.thread_count,
+                storage_writers_per_rank=pretrain_cfg.checkpoint.storage_writers_per_rank,
             )
 
             # Create LoRA config with packed sequences and run finetuning
@@ -248,7 +248,7 @@ class TestLoRAFinetune:
                 lora_checkpoint_dir,
                 lora_iters,
                 ckpt_format=lora_cfg.checkpoint.ckpt_format,
-                thread_count=lora_cfg.checkpoint.thread_count,
+                storage_writers_per_rank=lora_cfg.checkpoint.storage_writers_per_rank,
             )
             verify_peft_checkpoint_smaller(pretrain_checkpoint_dir, lora_checkpoint_dir, pretrain_iters, lora_iters)
 

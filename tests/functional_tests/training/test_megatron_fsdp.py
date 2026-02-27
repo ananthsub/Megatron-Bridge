@@ -315,7 +315,7 @@ class TestMegatronFSDP:
                 checkpoint_dir,
                 total_iters,
                 ckpt_format=cfg.checkpoint.ckpt_format,
-                thread_count=cfg.checkpoint.thread_count,
+                storage_writers_per_rank=cfg.checkpoint.storage_writers_per_rank,
             )
 
         finally:
@@ -364,7 +364,7 @@ class TestMegatronFSDP:
                 checkpoint_dir,
                 checkpoint_iters,
                 ckpt_format=cfg_first.checkpoint.ckpt_format,
-                thread_count=cfg_first.checkpoint.thread_count,
+                storage_writers_per_rank=cfg_first.checkpoint.storage_writers_per_rank,
             )
 
             torch.distributed.barrier()
@@ -390,7 +390,7 @@ class TestMegatronFSDP:
                 checkpoint_dir,
                 total_iters,
                 ckpt_format=cfg_second.checkpoint.ckpt_format,
-                thread_count=cfg_second.checkpoint.thread_count,
+                storage_writers_per_rank=cfg_second.checkpoint.storage_writers_per_rank,
             )
 
         finally:

@@ -276,7 +276,7 @@ class TestGPTOSSFinetuneRecipes:
                 config.checkpoint.save,
                 5,
                 ckpt_format=config.checkpoint.ckpt_format,
-                thread_count=config.checkpoint.thread_count,
+                storage_writers_per_rank=config.checkpoint.storage_writers_per_rank,
             )
 
         finally:
